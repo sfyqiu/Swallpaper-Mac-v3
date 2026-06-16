@@ -254,7 +254,7 @@ final class GuessYouLikeService {
         }
         for anime in AnimeFavoriteStore.shared.favorites ?? [] {
             for tag in anime.tags ?? [] {
-                addTag(tag, weight: 3, toStatic: true, toVideo: true)
+                addTag(tag.name, weight: 3, toStatic: true, toVideo: true)
             }
             addTag("anime", weight: 2, toStatic: true, toVideo: true)
             sourceScores[.wallhaven, default: 0] += 1
