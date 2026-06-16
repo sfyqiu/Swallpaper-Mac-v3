@@ -1,0 +1,766 @@
+import AppKit
+import Kingfisher
+
+private final class ExploreGridAspectFillImageView: NSImageView {
+    override var image: NSImage? {
+        didSet { updateLayerContents() }
+    }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        updateLayerContents()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        updateLayerContents()
+    }
+
+    private func updateLayerContents() {
+        guard let layer else { return }
+
+        layer.contentsGravity = .resizeAspectFill
+        layer.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+
+        guard let image, image.size.width > 0, image.size.height > 0 else {
+            layer.contents = nil
+            return
+        }
+
+        // 保留 NSImage 自身的多分辨率表示，避免提前压平成单张 CGImage 后丢掉 Retina 细节。
+        layer.contents = image
+    }
+}
+
+/// 通用网格 Cell 基类
+/// 支持 Cell 复用（prepareForReuse）、图片加载/取消、hover 缩放效果
+class ExploreGridItem: NSCollectionViewItem {
+
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("ExploreGridItem")
+
+    // MARK: - 子视图
+
+    /// 封面图片视图（避免与 NSCollectionViewItem.imageView 冲突）
+    let coverImageView: NSImageView = {
+        let iv = ExploreGridAspectFillImageView()
+        iv.imageScaling = .scaleProportionallyUpOrDown
+        iv.wantsLayer = true
+        iv.layerContentsRedrawPolicy = .never
+        iv.layer?.cornerRadius = 14
+        iv.layer?.masksToBounds = true
+        iv.layer?.contentsGravity = .resizeAspectFill
+        iv.layer?.minificationFilter = .linear
+        iv.layer?.magnificationFilter = .linear
+        return iv
+    }()
+
+    let containerView: NSView = {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.cornerRadius = 16
+        v.layer?.masksToBounds = true
+        return v
+    }()
+
+    private let cardSurfaceView: NSView = {
+        let v = NSView()
+        v.wantsLayer = true
+        v.layer?.masksToBounds = false
+        return v
+    }()
+
+    /// 边框层 — 子类可修改 borderWidth / borderColor 以适配不同 purity
+    let borderLayer: CALayer = {
+        let l = CALayer()
+        l.cornerRadius = 16
+        l.masksToBounds = true
+        l.borderWidth = 1
+        l.borderColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        return l
+    }()
+
+    /// 自定义内容视图（子类可添加标签、底栏等）
+    let contentView: NSView = {
+        let v = NSView()
+        v.wantsLayer = true
+        return v
+    }()
+
+    // MARK: - 状态
+
+    private var loadTask: Task<Void, Never>?
+    /// 当前正在加载（或已加载）的图片 URL，用于 tab 切回时跳过重复的 Kingfisher 请求
+    private var currentLoadingURL: URL?
+    private(set) var isHovered = false
+    private var isHoverInteractionEnabled = true
+    private var trackingArea: NSTrackingArea?
+
+    // MARK: - 动画 GIF 支持
+    private var animationTimer: Timer?
+    private var animatedFrames: [(image: NSImage, duration: TimeInterval)] = []
+    private var currentFrameIndex: Int = 0
+    var hoverExpansionAllowance: CGFloat = 0 {
+        didSet {
+            guard abs(hoverExpansionAllowance - oldValue) > 0.5 else { return }
+            layoutCardFrame()
+        }
+    }
+    private var cardCornerRadius: CGFloat = 16
+
+    var shouldAnimateScaleOnHover: Bool { true }
+    var shouldAnimateBorderOnHover: Bool { true }
+    var hoverScaleFactor: CGFloat { 1.035 }
+    var hoverOverlayMaxOpacity: Float { 0.02 }
+
+    // MARK: - Border State
+
+    private(set) var normalBorderWidth: CGFloat = 1
+    private(set) var normalBorderColor: NSColor = NSColor.white.withAlphaComponent(0.06)
+
+    // MARK: - Lifecycle
+
+    override func loadView() {
+        view = NSView()
+        view.wantsLayer = true
+        view.layer?.masksToBounds = false
+        // 不关闭 translatesAutoresizingMaskIntoConstraints：NSCollectionView 在 tile() 中
+        // 通过 frame 定位 cell view，如果关闭此属性，Auto Layout 引擎会尝试通过约束
+        // 定位 view，但 cell view 没有外部约束，可能导致布局引擎进入不稳定状态。
+
+        // 根 view 由 NSCollectionView 管理，只负责占位/tracking。
+        // Hover 缩放作用在内部 cardSurfaceView，避免和 collection item 布局定位互相影响。
+        view.addSubview(cardSurfaceView)
+        // CALayer 的默认 anchorPoint 就是中心点；hover 只做纯 scale，避免额外平移补偿造成斜向漂移。
+        cardSurfaceView.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        cardSurfaceView.addSubview(containerView)
+        containerView.addSubview(coverImageView)
+        containerView.addSubview(contentView)
+        cardSurfaceView.layer?.addSublayer(borderLayer)
+        cardSurfaceView.layer?.allowsEdgeAntialiasing = false
+        containerView.layer?.allowsEdgeAntialiasing = false
+        borderLayer.zPosition = 10
+
+        setupLayout()
+        setupContentLayout()
+        installHoverTrackingAreaIfNeeded()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+
+        loadTask?.cancel()
+        loadTask = nil
+        currentLoadingURL = nil
+        coverImageView.image = nil
+        stopAnimating()
+
+        isHovered = false
+        removeHoverAnimations()
+        view.layer?.zPosition = 0
+        layoutCardFrame()
+
+        normalBorderWidth = 1
+        normalBorderColor = NSColor.white.withAlphaComponent(0.06)
+        borderLayer.borderWidth = normalBorderWidth
+        borderLayer.borderColor = normalBorderColor.cgColor
+    }
+
+    /// 子类调用此方法来设置常态边框（hover 效果会在此基础上叠加）
+    func setNormalBorder(width: CGFloat, color: NSColor) {
+        normalBorderWidth = width
+        normalBorderColor = color
+        borderLayer.borderWidth = width
+        let targetAlpha = isHovered ? hoverBorderAlpha(for: color) : color.alphaComponent
+        borderLayer.borderColor = color.withAlphaComponent(targetAlpha).cgColor
+    }
+
+    func setCardCornerRadius(_ radius: CGFloat) {
+        cardCornerRadius = radius
+        containerView.layer?.cornerRadius = radius
+        borderLayer.cornerRadius = radius
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        layoutCardFrame()
+    }
+
+    // MARK: - 布局
+
+    private func setupLayout() {
+        containerView.translatesAutoresizingMaskIntoConstraints = true
+        coverImageView.translatesAutoresizingMaskIntoConstraints = true
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+    }
+
+    /// 子类重写此方法来添加自定义内容布局
+    func setupContentLayout() {
+        // 默认由 layoutContentFrames() 手动填充，避免复用初始 0 高时触发约束冲突。
+    }
+
+    /// 子类重写此方法来布局卡片内部内容。
+    func layoutContentFrames() {
+        coverImageView.frame = containerView.bounds
+        contentView.frame = containerView.bounds
+    }
+
+    // MARK: - 配置
+
+    /// 子类重写此方法来配置 Cell 内容
+    func configure(with item: Any, isFavorite: Bool) {
+        // 子类实现
+    }
+
+    func hoverStateDidChange(_ hovering: Bool) {
+        // 子类按需覆写
+    }
+
+    /// 加载图片。传入单个 URL，使用 Kingfisher 内置缓存。
+    func loadImage(url: URL?, targetSize: CGSize) {
+        guard let url else { return }
+        loadImage(urls: [url], targetSize: targetSize)
+    }
+
+    /// 加载图片。遍历候选 URL，取第一个成功加载且像素尺寸不低于目标 55% 的，用 Kingfisher 处理后显示。
+    func loadImage(urls: [URL], targetSize: CGSize) {
+        guard !urls.isEmpty else { return }
+
+        // tab 切回时如果图片 URL 没变，跳过 Kingfisher 重新请求
+        if urls.first == currentLoadingURL { return }
+
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let pixelSize = CGSize(width: max(targetSize.width, 64),
+                                height: max(targetSize.height, 64))
+        let minPixelEdge = max(pixelSize.width, pixelSize.height) * 0.55
+
+        currentLoadingURL = urls.first
+        loadTask?.cancel()
+        loadTask = Task { [weak self] in
+            guard let self else { return }
+
+            let options: KingfisherOptionsInfo = [
+                .processor(DownsamplingImageProcessor(size: pixelSize)),
+                .scaleFactor(CGFloat(scale)),
+                .backgroundDecode,
+                .retryStrategy(DelayRetryStrategy(maxRetryCount: 1, retryInterval: .seconds(0.5))),
+                .requestModifier(AnyModifier { request in
+                    var req = request
+                    req.timeoutInterval = 30
+                    if let host = req.url?.host?.lowercased(),
+                       host.contains("steam") || host.contains("akamaihd") {
+                        req.setValue("https://steamcommunity.com/", forHTTPHeaderField: "Referer")
+                    }
+                    return req
+                })
+            ]
+
+            // 遍历候选 URL：取第一张分辨率不低于目标 55% 的（避免小缩略图硬撑大）
+            var bestImage: NSImage?
+            var bestEdge: CGFloat = 0
+            for url in urls {
+                guard !Task.isCancelled else { return }
+                guard let image = try? await KingfisherManager.shared.retrieveImage(
+                    with: .network(url),
+                    options: options
+                ).image else { continue }
+                let imageEdge = max(image.size.width, image.size.height)
+                if imageEdge >= minPixelEdge {
+                    bestImage = image
+                    break
+                }
+                if imageEdge > bestEdge {
+                    bestImage = image
+                    bestEdge = imageEdge
+                }
+            }
+
+            guard let finalImage = bestImage, !Task.isCancelled else { return }
+            await MainActor.run { [weak self] in
+                guard let self, !Task.isCancelled else { return }
+                self.coverImageView.image = finalImage
+            }
+            // 用原始数据检测 GIF（不依赖 URL 后缀，Steam Workshop 动图预览后缀是 .png 但内容为 GIF）
+            guard !Task.isCancelled, let firstURL = urls.first else { return }
+            var req = URLRequest(url: firstURL)
+            req.timeoutInterval = 15
+            if let host = firstURL.host?.lowercased(),
+               host.contains("steam") || host.contains("akamaihd") {
+                req.setValue("https://steamcommunity.com/", forHTTPHeaderField: "Referer")
+            }
+            guard let (data, resp) = try? await URLSession.shared.data(for: req),
+                  resp.mimeType?.hasPrefix("image/gif") == true || data.prefix(3) == Data("GIF".utf8)
+            else { return }
+            await MainActor.run { [weak self] in
+                self?.startAnimatingIfAnimated(data: data)
+            }
+        }
+    }
+
+    // MARK: - 动画 GIF
+
+    /// 从已下载的图片数据检测并启动动画。data 是 Kingfisher 下载的原始数据。
+    /// 内存保护：最多解码 50 帧，每帧用 ImageIO 缩略图接口下采样到封面视图尺寸，
+    /// 避免大 GIF（如 4K 分辨率的 Steam 封面动图）单帧解码即可达 8MB，累积数十帧后撑爆内存。
+    func startAnimatingIfAnimated(data: Data) {
+        stopAnimating()
+        guard let cgSource = CGImageSourceCreateWithData(data as CFData, nil) else { return }
+        let count = CGImageSourceGetCount(cgSource)
+        guard count > 1 else { return }
+
+        // 限制最大帧数并计算采样步长
+        let maxFrames = 50
+        let frameStep = max(1, count / maxFrames)
+        let maxPixel = Int(max(coverImageView.bounds.width, coverImageView.bounds.height) * 3)
+
+        var frames: [(image: NSImage, duration: TimeInterval)] = []
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            kCGImageSourceCreateThumbnailWithTransform: true
+        ]
+        var i = 0
+        while i < count, frames.count < maxFrames {
+            let dur = Self.frameDuration(at: i, source: cgSource)
+            if let thumb = CGImageSourceCreateThumbnailAtIndex(cgSource, i, options as CFDictionary) {
+                frames.append((image: NSImage(cgImage: thumb, size: .zero), duration: dur))
+            }
+            i += frameStep
+        }
+        guard !frames.isEmpty else { return }
+
+        animatedFrames = frames
+        currentFrameIndex = 0
+        coverImageView.image = frames[0].image
+        advanceFrameRepeating()
+    }
+
+    func stopAnimating() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+        animatedFrames = []
+        currentFrameIndex = 0
+    }
+
+    private func advanceFrameRepeating() {
+        guard currentFrameIndex < animatedFrames.count else {
+            currentFrameIndex = 0
+            advanceFrameRepeating()
+            return
+        }
+        let dur = max(animatedFrames[currentFrameIndex].duration, 0.05)
+        animationTimer = Timer.scheduledTimer(withTimeInterval: dur, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            currentFrameIndex = (currentFrameIndex + 1) % animatedFrames.count
+            coverImageView.image = animatedFrames[currentFrameIndex].image
+            advanceFrameRepeating()
+        }
+    }
+
+    private static func frameDuration(at index: Int, source: CGImageSource) -> TimeInterval {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+              let gifProps = props[kCGImagePropertyGIFDictionary] as? [CFString: Any] else { return 0.1 }
+        if let dur = gifProps[kCGImagePropertyGIFDelayTime] as? NSNumber, dur.doubleValue > 0 { return dur.doubleValue }
+        if let dur = gifProps[kCGImagePropertyGIFUnclampedDelayTime] as? NSNumber, dur.doubleValue > 0 { return dur.doubleValue }
+        return 0.1
+    }
+
+    // MARK: - Hover
+
+    private func installHoverTrackingAreaIfNeeded() {
+        guard trackingArea == nil else { return }
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        self.trackingArea = trackingArea
+        view.addTrackingArea(trackingArea)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        guard isHoverInteractionEnabled else { return }
+        _ = updateHoverStateFromCurrentMouseLocation(animated: true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        guard isHoverInteractionEnabled else { return }
+        setHovered(false, animated: true)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard isHoverInteractionEnabled else { return }
+        _ = updateHoverStateFromCurrentMouseLocation(animated: true)
+    }
+
+    func setHoverInteractionEnabled(_ enabled: Bool) {
+        guard isHoverInteractionEnabled != enabled else { return }
+        isHoverInteractionEnabled = enabled
+
+        if !enabled {
+            setHovered(false, animated: false)
+        }
+    }
+
+    func clearHover(animated: Bool = false) {
+        setHovered(false, animated: animated)
+    }
+
+    @discardableResult
+    func updateHoverStateFromCurrentMouseLocation(animated: Bool = true) -> Bool {
+        guard isHoverInteractionEnabled,
+              let window = view.window else { return false }
+
+        let locationInWindow = window.mouseLocationOutsideOfEventStream
+        let locationInRoot = view.convert(locationInWindow, from: nil)
+        let cardFrame = cardSurfaceView.frame
+        guard cardFrame.width > 0, cardFrame.height > 0 else {
+            setHovered(false, animated: animated)
+            return false
+        }
+
+        let visualExpansion = isHovered ? max(1, hoverExpansionAllowance) : 0
+        let stableHitFrame = cardFrame.insetBy(dx: -visualExpansion, dy: -visualExpansion)
+        guard stableHitFrame.contains(locationInRoot) else {
+            setHovered(false, animated: animated)
+            return false
+        }
+
+        let locationInCard = cardSurfaceView.convert(locationInRoot, from: view)
+        let hitPath = NSBezierPath(
+            roundedRect: cardSurfaceView.bounds.insetBy(dx: -visualExpansion, dy: -visualExpansion),
+            xRadius: cardCornerRadius,
+            yRadius: cardCornerRadius
+        )
+        let containsMouse = hitPath.contains(locationInCard)
+        setHovered(containsMouse, animated: animated)
+        return containsMouse
+    }
+
+    private func setHovered(_ hovering: Bool, animated: Bool) {
+        guard isHovered != hovering || !animated else { return }
+
+        if hovering {
+            clearSiblingHoverStates()
+        }
+
+        isHovered = hovering
+        hoverStateDidChange(hovering)
+
+        if animated {
+            animateHover(hovering)
+        } else {
+            removeHoverAnimations()
+            view.layer?.zPosition = hovering ? 100 : 0
+            layoutCardFrame()
+            applyCardTransform(hovering: hovering)
+            if shouldAnimateBorderOnHover {
+                borderLayer.borderWidth = hovering ? hoverBorderWidth() : normalBorderWidth
+                let borderAlpha = hovering
+                    ? hoverBorderAlpha(for: normalBorderColor)
+                    : normalBorderColor.alphaComponent
+                borderLayer.borderColor = normalBorderColor.withAlphaComponent(borderAlpha).cgColor
+            } else {
+                borderLayer.borderWidth = normalBorderWidth
+                borderLayer.borderColor = normalBorderColor.cgColor
+            }
+        }
+    }
+
+    private func animateHover(_ hovering: Bool) {
+        view.layer?.zPosition = hovering ? 100 : 0
+        if shouldAnimateScaleOnHover {
+            animateCardTransform(hovering: hovering)
+        } else {
+            layoutCardFrame()
+            applyCardTransform(hovering: false)
+        }
+        if shouldAnimateBorderOnHover {
+            animateBorderHover(hovering)
+        } else {
+            borderLayer.borderWidth = normalBorderWidth
+            borderLayer.borderColor = normalBorderColor.cgColor
+        }
+    }
+
+    private func animateBorderHover(_ hovering: Bool) {
+        let targetWidth = hovering ? hoverBorderWidth() : normalBorderWidth
+        let targetAlpha = hovering
+            ? hoverBorderAlpha(for: normalBorderColor)
+            : normalBorderColor.alphaComponent
+        let targetColor = normalBorderColor.withAlphaComponent(targetAlpha)
+
+        let oldWidth = borderLayer.presentation()?.borderWidth ?? borderLayer.borderWidth
+        let oldColor = borderLayer.presentation()?.borderColor ?? borderLayer.borderColor
+
+        borderLayer.borderWidth = targetWidth
+        borderLayer.borderColor = targetColor.cgColor
+
+        let widthAnim = CABasicAnimation(keyPath: "borderWidth")
+        widthAnim.fromValue = oldWidth
+        widthAnim.toValue = targetWidth
+        widthAnim.duration = 0.2
+        widthAnim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        borderLayer.add(widthAnim, forKey: "wallpaper-card-hover-borderWidth")
+
+        let colorAnim = CABasicAnimation(keyPath: "borderColor")
+        colorAnim.fromValue = oldColor
+        colorAnim.toValue = targetColor.cgColor
+        colorAnim.duration = 0.2
+        colorAnim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        borderLayer.add(colorAnim, forKey: "wallpaper-card-hover-borderColor")
+    }
+
+    private func layoutCardFrame() {
+        let frame = cardFrame()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        applyCardFrame(frame)
+        applyCardTransform(hovering: isHovered)
+        CATransaction.commit()
+    }
+
+    private func cardFrame() -> CGRect {
+        let inset = max(0, hoverExpansionAllowance)
+        return view.bounds.insetBy(dx: inset, dy: inset)
+    }
+
+    private func applyCardFrame(_ frame: CGRect) {
+        cardSurfaceView.frame = frame
+        if let layer = cardSurfaceView.layer {
+            layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            layer.position = CGPoint(x: frame.midX, y: frame.midY)
+            layer.bounds = CGRect(origin: .zero, size: frame.size)
+        }
+        containerView.frame = cardSurfaceView.bounds
+        layoutContentFrames()
+        borderLayer.frame = cardSurfaceView.bounds
+    }
+
+    private func cardTransform(hovering: Bool) -> CATransform3D {
+        guard hovering, shouldAnimateScaleOnHover, hoverScaleFactor > 1 else {
+            return CATransform3DIdentity
+        }
+        return CATransform3DMakeScale(hoverScaleFactor, hoverScaleFactor, 1)
+    }
+
+    private func applyCardTransform(hovering: Bool) {
+        cardSurfaceView.layer?.transform = cardTransform(hovering: hovering)
+    }
+
+    private func animateCardTransform(hovering: Bool) {
+        guard let layer = cardSurfaceView.layer else {
+            applyCardTransform(hovering: hovering)
+            return
+        }
+
+        let targetTransform = cardTransform(hovering: hovering)
+        let currentTransform = layer.presentation()?.transform ?? layer.transform
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.transform = targetTransform
+        CATransaction.commit()
+
+        let animation = CABasicAnimation(keyPath: "transform")
+        animation.fromValue = currentTransform
+        animation.toValue = targetTransform
+        animation.duration = 0.16
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(animation, forKey: "wallpaper-card-hover-transform")
+    }
+
+    private func removeHoverAnimations() {
+        cardSurfaceView.layer?.removeAnimation(forKey: "wallpaper-card-hover-transform")
+        borderLayer.removeAnimation(forKey: "wallpaper-card-hover-borderWidth")
+        borderLayer.removeAnimation(forKey: "wallpaper-card-hover-borderColor")
+    }
+
+    private func hoverBorderWidth() -> CGFloat {
+        normalBorderWidth + 0.5
+    }
+
+    private func hoverBorderAlpha(for color: NSColor) -> CGFloat {
+        let alpha = color.alphaComponent
+        return alpha < 0.5 ? 0.18 : alpha
+    }
+
+    private func clearSiblingHoverStates() {
+        guard let collectionView = enclosingCollectionView() else { return }
+
+        for item in collectionView.visibleItems() {
+            guard let sibling = item as? ExploreGridItem, sibling !== self else { continue }
+            sibling.clearHover(animated: false)
+        }
+    }
+
+    private func enclosingCollectionView() -> NSCollectionView? {
+        var ancestor = view.superview
+        while let current = ancestor {
+            if let collectionView = current as? NSCollectionView {
+                return collectionView
+            }
+            ancestor = current.superview
+        }
+        return nil
+    }
+}
+
+enum ExploreGridSkeletonStyle {
+    case wallpaper
+    case media
+    case anime
+}
+
+final class ExploreGridSkeletonCell: ExploreGridItem {
+    private enum Layout {
+        static let outerCornerRadius: CGFloat = 16
+        static let imageCornerRadius: CGFloat = 14
+        static let bottomBarHeight: CGFloat = 44
+        static let horizontalPadding: CGFloat = 14
+        static let animeTitleY: CGFloat = 18
+        static let animeEpisodeY: CGFloat = 8
+        static let animeBadgeTop: CGFloat = 10
+        static let animeBadgeTrailing: CGFloat = 8
+    }
+
+    private let imageSkeletonView: NSView = {
+        let view = NSView()
+        view.wantsLayer = true
+        return view
+    }()
+
+    private let bottomBar: NSView = {
+        let view = NSView()
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.46).cgColor
+        return view
+    }()
+
+    private let leadingSkeleton = CALayer()
+    private let trailingSkeleton = CALayer()
+    private let secondaryLeadingSkeleton = CALayer()
+    private let secondaryDotSkeleton = CALayer()
+    private let topTrailingBadgeSkeleton = CALayer()
+    private var skeletonStyle: ExploreGridSkeletonStyle = .media
+
+    override var hoverScaleFactor: CGFloat { 1.0 }
+    override var shouldAnimateScaleOnHover: Bool { false }
+    override var shouldAnimateBorderOnHover: Bool { false }
+
+    override func setupContentLayout() {
+        setCardCornerRadius(Layout.outerCornerRadius)
+        setNormalBorder(width: 1, color: NSColor.white.withAlphaComponent(0.06))
+
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+        imageSkeletonView.translatesAutoresizingMaskIntoConstraints = true
+        bottomBar.translatesAutoresizingMaskIntoConstraints = true
+
+        contentView.addSubview(imageSkeletonView)
+        contentView.addSubview(bottomBar)
+
+        for layer in [leadingSkeleton, trailingSkeleton, secondaryLeadingSkeleton, secondaryDotSkeleton] {
+            layer.cornerRadius = 4
+            layer.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+            bottomBar.layer?.addSublayer(layer)
+        }
+        topTrailingBadgeSkeleton.cornerRadius = 11
+        topTrailingBadgeSkeleton.backgroundColor = NSColor.white.withAlphaComponent(0.10).cgColor
+        imageSkeletonView.layer?.addSublayer(topTrailingBadgeSkeleton)
+
+        imageSkeletonView.layer?.cornerRadius = Layout.imageCornerRadius
+        imageSkeletonView.layer?.masksToBounds = true
+        imageSkeletonView.layer?.backgroundColor = NSColor(calibratedRed: 0.11, green: 0.14, blue: 0.19, alpha: 1).cgColor
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        skeletonStyle = .media
+    }
+
+    override func configure(with item: Any, isFavorite: Bool) {
+        guard let style = item as? ExploreGridSkeletonStyle else { return }
+        skeletonStyle = style
+        switch style {
+        case .wallpaper, .anime:
+            imageSkeletonView.layer?.backgroundColor = NSColor(calibratedRed: 0.11, green: 0.14, blue: 0.19, alpha: 1).cgColor
+            bottomBar.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.46).cgColor
+        case .media:
+            imageSkeletonView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+            bottomBar.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.32).cgColor
+        }
+        layoutContentFrames()
+    }
+
+    override func layoutContentFrames() {
+        let bounds = containerView.bounds
+        guard bounds.width > 0, bounds.height > 0 else { return }
+
+        contentView.frame = bounds
+        let imageHeight = max(0, bounds.height - Layout.bottomBarHeight)
+        imageSkeletonView.frame = CGRect(x: 0, y: Layout.bottomBarHeight, width: bounds.width, height: imageHeight)
+
+        bottomBar.frame = CGRect(x: 0, y: 0, width: bounds.width, height: Layout.bottomBarHeight)
+
+        let leadingWidth: CGFloat
+        let trailingWidth: CGFloat
+        switch skeletonStyle {
+        case .wallpaper:
+            leadingWidth = min(max(90, bounds.width * 0.42), bounds.width - 120)
+            trailingWidth = 60
+        case .media:
+            leadingWidth = min(max(72, bounds.width * 0.34), bounds.width - 100)
+            trailingWidth = 50
+        case .anime:
+            leadingWidth = min(max(80, bounds.width * 0.48), bounds.width - 90)
+            trailingWidth = 40
+        }
+
+        if skeletonStyle == .anime {
+            leadingSkeleton.frame = CGRect(
+                x: Layout.horizontalPadding,
+                y: Layout.animeTitleY,
+                width: max(56, min(bounds.width - Layout.horizontalPadding * 2, leadingWidth)),
+                height: 12
+            ).integral
+            secondaryDotSkeleton.frame = CGRect(
+                x: Layout.horizontalPadding,
+                y: Layout.animeEpisodeY + 1,
+                width: 10,
+                height: 10
+            ).integral
+            secondaryDotSkeleton.cornerRadius = 5
+            secondaryLeadingSkeleton.frame = CGRect(
+                x: secondaryDotSkeleton.frame.maxX + 6,
+                y: Layout.animeEpisodeY,
+                width: max(44, min(bounds.width - Layout.horizontalPadding * 2 - 16, bounds.width * 0.34)),
+                height: 10
+            ).integral
+            trailingSkeleton.frame = .zero
+            topTrailingBadgeSkeleton.frame = CGRect(
+                x: bounds.width - Layout.animeBadgeTrailing - trailingWidth,
+                y: imageHeight - Layout.animeBadgeTop - 22,
+                width: trailingWidth,
+                height: 22
+            ).integral
+        } else {
+            leadingSkeleton.frame = CGRect(
+                x: Layout.horizontalPadding,
+                y: floor((Layout.bottomBarHeight - 12) / 2),
+                width: max(42, leadingWidth),
+                height: 12
+            ).integral
+            trailingSkeleton.frame = CGRect(
+                x: bounds.width - Layout.horizontalPadding - trailingWidth,
+                y: floor((Layout.bottomBarHeight - 10) / 2),
+                width: trailingWidth,
+                height: 10
+            ).integral
+            secondaryLeadingSkeleton.frame = .zero
+            secondaryDotSkeleton.frame = .zero
+            topTrailingBadgeSkeleton.frame = .zero
+            secondaryDotSkeleton.cornerRadius = 4
+        }
+    }
+}

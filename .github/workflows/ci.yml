@@ -1,0 +1,160 @@
+name: CI
+
+# Swallpaper-Mac-v2 CI 工作流
+on:
+    push:
+        branches: [main]
+        paths-ignore:
+            - "**.md"
+            - "docs/**"
+    pull_request:
+        branches: [main]
+        paths-ignore:
+            - "**.md"
+            - "docs/**"
+    workflow_dispatch:
+
+env:
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: macos-26
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: Select Xcode 26.4
+              run: |
+                  sudo xcode-select -s /Applications/Xcode_26.4.app/Contents/Developer
+                  echo "Xcode Path: $(xcode-select -p)"
+                  xcodebuild -version
+                  swift --version
+
+            - name: Check XcodeGen
+              run: which xcodegen || brew install xcodegen
+
+            - name: Install create-dmg
+              run: brew install create-dmg || true
+
+            - name: Sync VERSION to project.yml
+              run: bash scripts/sync-version.sh && grep -E "(MARKETING_VERSION|CURRENT_PROJECT_VERSION)" project.yml
+
+            - name: Generate Xcode Project
+              run: xcodegen generate
+
+            - name: Cache SPM Dependencies
+              uses: actions/cache@v5
+              with:
+                  path: |
+                      ~/Library/Caches/org.swift.swiftpm
+                  key: ${{ runner.os }}-spm-${{ hashFiles('**/project.yml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-spm-
+
+            - name: Read Version
+              id: version
+              run: |
+                  VERSION=$(cat VERSION | tr -d '[:space:]')
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+                  echo "Building version: $VERSION"
+
+            - name: Check if Tag Exists
+              id: check_tag
+              run: |
+                  if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+                    echo "exists=true" >> $GITHUB_OUTPUT
+                    echo "Tag ${{ steps.version.outputs.tag }} already exists"
+                  else
+                    echo "exists=false" >> $GITHUB_OUTPUT
+                    echo "Tag ${{ steps.version.outputs.tag }} does not exist"
+                  fi
+
+            - name: Build & Package
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_tag.outputs.exists == 'false'
+              run: |
+                  chmod +x ./scripts/package.sh
+                  ./scripts/package.sh
+
+            - name: Build (PRs)
+              if: github.event_name == 'pull_request'
+              run: |
+                  mkdir -p build
+                  xcodebuild -project Swallpaper.xcodeproj \
+                    -scheme Swallpaper \
+                    -destination 'platform=macOS' \
+                    -configuration Release \
+                    -derivedDataPath build \
+                    SWIFT_STRICT_CONCURRENCY=minimal \
+                    DEBUG_INFORMATION_FORMAT=dwarf \
+                    CODE_SIGNING_REQUIRED=NO \
+                    CODE_SIGNING_ALLOWED=NO \
+                    clean build
+
+            # push 且当前 VERSION 已有 tag 时不会跑「Build & Package」，此处补一次编译校验
+            - name: Build (verify push to main)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_tag.outputs.exists == 'true'
+              run: |
+                  mkdir -p build
+                  xcodebuild -project Swallpaper.xcodeproj \
+                    -scheme Swallpaper \
+                    -destination 'platform=macOS' \
+                    -configuration Release \
+                    -derivedDataPath build \
+                    SWIFT_STRICT_CONCURRENCY=minimal \
+                    DEBUG_INFORMATION_FORMAT=dwarf \
+                    CODE_SIGNING_REQUIRED=NO \
+                    CODE_SIGNING_ALLOWED=NO \
+                    clean build
+
+            - name: Generate Changelog
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_tag.outputs.exists == 'false'
+              id: changelog
+              run: |
+                  # 获取上一个 tag（用于生成变更日志）
+                  PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+                  if [ -n "$PREV_TAG" ]; then
+                    # 从上一个 tag 到当前提交的 commit messages 生成日志
+                    CHANGELOG=$(git log "$PREV_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -30)
+                    echo "Generated changelog from $PREV_TAG to HEAD:"
+                    echo "$CHANGELOG"
+                  else
+                    CHANGELOG="- Initial release"
+                    echo "No previous tag found, using default changelog"
+                  fi
+
+                  # 写入 GITHUB_OUTPUT 供后续 step 使用
+                  {
+                    echo "changelog<<EOF"
+                    echo "$CHANGELOG"
+                    echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Create Release & Upload Asset
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_tag.outputs.exists == 'false'
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.version.outputs.tag }}
+                  name: Swallpaper ${{ steps.version.outputs.version }}
+                  body: |
+                      ## 更新内容
+
+                      ${{ steps.changelog.outputs.changelog }}
+
+                      ## 版本信息
+
+                      - 版本号: ${{ steps.version.outputs.version }}
+                      - Commit: ${{ github.sha }}
+                  files: build/Swallpaper.dmg
+                  draft: false
+                  prerelease: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

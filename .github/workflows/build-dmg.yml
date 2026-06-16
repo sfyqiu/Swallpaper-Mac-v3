@@ -1,0 +1,130 @@
+name: Build DMG
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select latest Xcode 26.x
+        run: |
+          echo "Available Xcodes:"
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          LATEST=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || echo "")
+          if [ -n "$LATEST" ]; then
+            sudo xcode-select -s "$LATEST/Contents/Developer"
+          fi
+          echo "Xcode Path: $(xcode-select -p)"
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Install create-dmg (optional)
+        run: brew install create-dmg || true
+        continue-on-error: true
+
+      - name: Sync VERSION to project.yml
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          MAJOR_VERSION=$(echo $VERSION | cut -d. -f1)
+          echo "VERSION=$VERSION  MAJOR=$MAJOR_VERSION"
+          sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: $VERSION/" project.yml
+          sed -i '' "s/CURRENT_PROJECT_VERSION: .*/CURRENT_PROJECT_VERSION: $MAJOR_VERSION/" project.yml
+          grep -E "(MARKETING_VERSION|CURRENT_PROJECT_VERSION)" project.yml
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Cache SPM Dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('project.yml') }}
+          restore-keys: ${{ runner.os }}-spm-
+
+      - name: Build Archive
+        run: |
+          xcodebuild -scheme Swallpaper -configuration Release clean archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf \
+            SWIFT_STRICT_CONCURRENCY=minimal \
+            -archivePath build/Swallpaper.xcarchive
+
+      - name: Export App
+        run: |
+          cat > build/exportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>mac-application</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/Swallpaper.xcarchive \
+            -exportPath build \
+            -exportOptionsPlist build/exportOptions.plist \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Create DMG
+        run: |
+          if command -v create-dmg &> /dev/null; then
+            create-dmg --volname "Swallpaper" --window-size 540 400 \
+              --app-drop-link 400 185 --hide-extension "Swallpaper.app" \
+              --no-internet-enable build/Swallpaper.dmg build/Swallpaper.app || \
+            hdiutil create -volname "Swallpaper" -srcfolder build/Swallpaper.app \
+              -ov -format UDZO -imagekey zlib-level=9 build/Swallpaper.dmg
+          else
+            hdiutil create -volname "Swallpaper" -srcfolder build/Swallpaper.app \
+              -ov -format UDZO -imagekey zlib-level=9 build/Swallpaper.dmg
+          fi
+
+      - name: Read Version
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Push Tag
+        run: |
+          git tag -f "${{ steps.version.outputs.tag }}"
+          git push -f origin "${{ steps.version.outputs.tag }}"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Swallpaper ${{ steps.version.outputs.version }}
+          body: |
+            ## Swallpaper — 基于 macOS 壁纸的个人定制版
+
+            - macOS 系统下 Steam 创意工坊完整访问
+            - 更新检查指向本仓库
+
+            ### 安装说明
+            下载 `Swallpaper.dmg`，双击挂载后把 `Swallpaper.app` 拖入 Applications。
+            首次打开需**右键 → 打开**（未签名公证）。
+          files: build/Swallpaper.dmg
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
