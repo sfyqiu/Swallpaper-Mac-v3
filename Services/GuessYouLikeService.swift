@@ -252,8 +252,8 @@ final class GuessYouLikeService {
         for item in MediaLibraryService.shared.recentItems.prefix(20) {
             addMedia(item, weight: 1)
         }
-        for anime in AnimeFavoriteStore.shared.favorites {
-            for tag in anime.tags {
+        for anime in AnimeFavoriteStore.shared.favorites ?? [] {
+            for tag in anime.tags ?? [] {
                 addTag(tag, weight: 3, toStatic: true, toVideo: true)
             }
             addTag("anime", weight: 2, toStatic: true, toVideo: true)
