@@ -109,7 +109,7 @@ targets:
           }
 
           HAS_ASSETS=false
-          if [ -d "Resources/assets" ] && [ -n "$(ls -A Resources/assets 2>/dev/null)" ]; then
+          if [ -d "Resources/assets" ] && [ -n "$(find Resources/assets -type f ! -name '.*' -print -quit 2>/dev/null)" ]; then
             HAS_ASSETS=true
           fi
 
@@ -118,8 +118,7 @@ targets:
               echo "Resources/assets 不存在或为空，保留已提交的内嵌 assets 对象"
               exit 0
             fi
-            echo "❌ Resources/assets 不存在或为空，且缺少可用的内嵌 assets 对象"
-            exit 1
+            echo "⚠️  Resources/assets 为空，将嵌入空 zip（无需 assets 时正常）"
           fi
 
           TMP_ZIP="/tmp/swallpaper-embedded-assets-$$.zip"
