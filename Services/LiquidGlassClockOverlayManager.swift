@@ -182,7 +182,9 @@ public final class LiquidGlassClockOverlayManager {
         else { return nil }
         guard let info = WallpaperDynamicTextParser.loadSidecar(for: videoURL) else { return nil }
         if let wallpaperPath = info.wallpaperPath, !wallpaperPath.isEmpty {
-            return SceneWallpaperDesignService.mergeDesign(into: info, wallpaperPath: wallpaperPath)
+            // FIXME: SceneWallpaperDesignService.mergeDesign does not exist yet
+            // return SceneWallpaperDesignService.mergeDesign(into: info, wallpaperPath: wallpaperPath)
+            return info
         }
         return info
     }

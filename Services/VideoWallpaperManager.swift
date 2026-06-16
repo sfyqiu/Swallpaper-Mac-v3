@@ -43,6 +43,7 @@ final class VideoWallpaperManager: ObservableObject {
     @Published private(set) var currentPosterURL: URL?
     @Published private(set) var isMuted = true
     @Published private(set) var isPaused = false
+    @Published private(set) var wallpaperChangeCount = 0
     @Published private(set) var volume: Double = 1.0
 
     /// 每个屏幕的独立 poster（key 为 screenID），解决多屏自动更换时 poster 被覆盖的问题

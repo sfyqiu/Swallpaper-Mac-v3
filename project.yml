@@ -46,7 +46,6 @@ targets:
       - path: Utilities
       - path: Components
       - path: DesignSystem
-      - path: Rules
       - path: Metal
       - path: Assets.xcassets
       # 含 wallpaper-wgpu（新 Metal 渲染器）、wallpaperengine-cli（旧离线烘焙 renderer）、dxc、dylib 等；assets/ 用于构建时内嵌

@@ -252,7 +252,7 @@ final class GuessYouLikeService {
         for item in MediaLibraryService.shared.recentItems.prefix(20) {
             addMedia(item, weight: 1)
         }
-        for (_, anime) in AnimeFavoriteStore.shared.favorites {
+        for anime in AnimeFavoriteStore.shared.favorites {
             for tag in anime.tags {
                 addTag(tag, weight: 3, toStatic: true, toVideo: true)
             }
@@ -632,39 +632,11 @@ final class GuessYouLikeService {
         }
     }
 
-    // MARK: - 6. Wallsflow
+    // MARK: - 6. Wallsflow (DISABLED — WallsflowService unavailable)
 
     private func fetchWallsflow(count: Int, preferences: PreferenceSnapshot) async -> [GuessYouLikeItem] {
-        guard count > 0 else { return [] }
-        do {
-            let preferredPage: WallsflowListPage
-            if let slug = wallsflowCategorySlug(for: preferences) {
-                preferredPage = try await WallsflowService.shared.fetchCategory(slug: slug, page: 1)
-            } else if let query = preferences.videoTags.first ?? preferences.allTags.first {
-                preferredPage = try await WallsflowService.shared.search(query: query, page: 1)
-            } else {
-                preferredPage = try await WallsflowService.shared.fetchHome(page: 1)
-            }
-
-            let page = preferredPage.items.isEmpty
-                ? try await WallsflowService.shared.fetchHome(page: 1)
-                : preferredPage
-
-            return page.items.prefix(count).map { m in
-                GuessYouLikeItem(
-                    id: m.slug,
-                    title: m.title,
-                    subtitle: m.collectionTitle ?? m.resolutionLabel,
-                    imageURL: m.coverImageURL.absoluteString,
-                    destination: m.pageURL.absoluteString,
-                    contentType: .video,
-                    sourceName: RecommendationSource.wallsflow.displayName
-                )
-            }
-        } catch {
-            print("[GYL] Wallsflow error: \(error)")
-            return []
-        }
+        // WallsflowService/WallsflowListPage types not available in this build
+        return []
     }
 }
 
