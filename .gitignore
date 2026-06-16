@@ -84,6 +84,9 @@ Resources/steamcmd/public/
 Resources/zip_data.o
 Resources/wallpaper-wgpu
 Resources/wallpaperengine-cli
+/wallpaper-wgpu
+/wallpaperengine-cli
+/zip_data.o
 Resources/lib/*.dylib
 Resources/lib/*.so
 Resources/steamcmd/steamclient.dylib
