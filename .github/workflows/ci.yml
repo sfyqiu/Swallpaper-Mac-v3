@@ -80,8 +80,42 @@ jobs:
             - name: Build & Package
               if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_tag.outputs.exists == 'false'
               run: |
-                  chmod +x ./scripts/package.sh
-                  ./scripts/package.sh
+                  mkdir -p build
+                  xcodebuild -scheme Swallpaper -configuration Release clean archive \
+                    CODE_SIGN_IDENTITY="-" \
+                    CODE_SIGNING_REQUIRED=NO \
+                    CODE_SIGNING_ALLOWED=NO \
+                    DEBUG_INFORMATION_FORMAT=dwarf \
+                    SWIFT_STRICT_CONCURRENCY=minimal \
+                    -archivePath build/Swallpaper.xcarchive
+
+                  cat > build/exportOptions.plist << 'EOF'
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                  <plist version="1.0">
+                  <dict>
+                      <key>method</key>
+                      <string>mac-application</string>
+                  </dict>
+                  </plist>
+                  EOF
+                  xcodebuild -exportArchive \
+                    -archivePath build/Swallpaper.xcarchive \
+                    -exportPath build \
+                    -exportOptionsPlist build/exportOptions.plist \
+                    CODE_SIGN_IDENTITY="-" \
+                    CODE_SIGNING_ALLOWED=NO
+
+                  if command -v create-dmg &> /dev/null; then
+                    create-dmg --volname "Swallpaper" --window-size 540 400 \
+                      --app-drop-link 400 185 --hide-extension "Swallpaper.app" \
+                      --no-internet-enable build/Swallpaper.dmg build/Swallpaper.app || \
+                    hdiutil create -volname "Swallpaper" -srcfolder build/Swallpaper.app \
+                      -ov -format UDZO -imagekey zlib-level=9 build/Swallpaper.dmg
+                  else
+                    hdiutil create -volname "Swallpaper" -srcfolder build/Swallpaper.app \
+                      -ov -format UDZO -imagekey zlib-level=9 build/Swallpaper.dmg
+                  fi
 
             - name: Build (PRs)
               if: github.event_name == 'pull_request'
