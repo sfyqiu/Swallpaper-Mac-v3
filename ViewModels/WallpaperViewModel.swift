@@ -71,10 +71,14 @@ class WallpaperViewModel: ObservableObject {
         highQualityMode ? "3840x2160" : atleastResolution
     }
 
-    /// 高质量模式下自动过滤非 SFW
-    private var effectivePuritySFW: Bool { highQualityMode ? true : puritySFW }
-    private var effectivePuritySketchy: Bool { highQualityMode ? false : puritySketchy }
-    private var effectivePurityNSFW: Bool { highQualityMode ? false : purityNSFW }
+    /// 高质量模式下按热门评分排序
+    private var effectiveSortingOption: SortingOption {
+        highQualityMode ? .toplist : sortingOption
+    }
+
+    private var effectiveTopRange: TopRange {
+        highQualityMode ? .oneYear : topRange
+    }
     @Published var selected4KCategorySlug: String? = nil  // 4K 源的分类 slug（如 "anime", "nature"）
     @Published var selected4KSorting: FourKSortingOption = .latest  // 4K 源的排序方式
 
@@ -792,9 +796,9 @@ class WallpaperViewModel: ObservableObject {
             page: page,
             categories: normalizedCategoryMask(),
             purity: normalizedPurityMask(),
-            sorting: sortingOption.rawValue,
+            sorting: effectiveSortingOption.rawValue,
             order: orderDescending ? "desc" : "asc",
-            topRange: sortingOption == .toplist ? topRange.rawValue : nil,
+            topRange: effectiveSortingOption == .toplist ? effectiveTopRange.rawValue : nil,
             atleast: effectiveAtleastResolution,
             resolutions: normalizedResolutions(),
             ratios: normalizedRatios(),
@@ -1026,9 +1030,9 @@ class WallpaperViewModel: ObservableObject {
     private func normalizedPurityMask() -> String {
         // 位掩码格式: 1=包含, 0=排除
         // 第一位=SFW, 第二位=Sketchy, 第三位=NSFW
-        let sfw = (highQualityMode || puritySFW) ? 1 : 0
-        let sketchy = highQualityMode ? 0 : (puritySketchy ? 1 : 0)
-        let nsfw = highQualityMode ? 0 : ((apiKeyConfigured && purityNSFW) ? 1 : 0)
+        let sfw = puritySFW ? 1 : 0
+        let sketchy = puritySketchy ? 1 : 0
+        let nsfw = (apiKeyConfigured && purityNSFW) ? 1 : 0
 
         // 确保至少选择一个
         if sfw == 0 && sketchy == 0 && nsfw == 0 {

@@ -282,7 +282,7 @@ private let translations: [LocalizationService.Language: [String: String]] = [
         // Filters
         "contentLevel": "CONTENT LEVEL",
         "highQualityMode": "High Quality Mode",
-        "highQualityModeDesc": "4K+ only · SFW only · Top rated",
+        "highQualityModeDesc": "4K+ · Top rated only",
         "colorFilter": "COLOR FILTER",
         "currentFilters": "CURRENT FILTERS",
         "allRatios": "ALL RATIOS",
@@ -1346,7 +1346,7 @@ private let translations: [LocalizationService.Language: [String: String]] = [
         // Filters
         "contentLevel": "内容级别",
         "highQualityMode": "🔥 高质量模式",
-        "highQualityModeDesc": "仅显示 4K+ · 安全内容 · 高评分壁纸",
+        "highQualityModeDesc": "仅显示 4K+ 高评分热门壁纸",
         "colorFilter": "颜色筛选",
         "currentFilters": "当前筛选",
         "allRatios": "全部比例",
