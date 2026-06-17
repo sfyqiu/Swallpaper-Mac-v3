@@ -581,8 +581,16 @@ struct MediaExploreContentView: View {
     }
 
     private func refreshCurrentSource() async {
-        // 触发当前源刷新
-        NotificationCenter.default.post(name: .workshopSourceChanged, object: nil)
+        switch workshopSourceManager.activeSource {
+        case .motionBG, .wallpaperEngine:
+            await applyWorkshopFilters()
+        case .dongtai:
+            NotificationCenter.default.post(name: .workshopSourceChanged, object: nil)
+        case .coverr, .pexels:
+            NotificationCenter.default.post(name: .workshopSourceChanged, object: nil)
+        default:
+            break
+        }
     }
 
     private var workshopTagsSection: some View {
