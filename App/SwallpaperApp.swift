@@ -294,7 +294,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // 启动 AppResponsivenessMonitor（应用响应监控，监测主线程卡顿）
         DispatchQueue.main.async {
-            AppResponsivenessMonitor.shared.startMonitoring()
+            AppResponsivenessMonitor.startIfNeeded()
         }
 
         // 注：更新检查已移到 ContentView 中处理
@@ -689,7 +689,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
-        panel.canChooseHiddenFiles = false
         panel.prompt = "选择要导入的文件或目录"
         panel.message = "支持图片、视频、Steam Workshop 目录（含 project.json）"
         panel.allowedContentTypes = [.image, .movie, .folder, .package]

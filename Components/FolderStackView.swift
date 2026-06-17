@@ -103,7 +103,7 @@ struct LibraryFolderCard: View {
                             size: CGSize(width: cardWidth, height: thumbnailHeight)
                         )
                     } else {
-                        LockedFolderOverlay(iconSize: 36)
+                        LockedFolderOverlay(isUnlocked: false, iconSize: 36)
                     }
                 }
                 .frame(width: cardWidth, height: thumbnailHeight)
