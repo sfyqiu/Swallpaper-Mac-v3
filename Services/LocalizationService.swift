@@ -353,6 +353,7 @@ private let translations: [LocalizationService.Language: [String: String]] = [
         "importCookies": "Import Cookies",
         // DongTai (Dynamic Wallpaper)
         "dongtai": "Dynamic Wallpaper",
+        "wallsflow": "Wallsflow",
         "dongtai.filters": "QUALITY FILTERS",
         "dongtai.filter.hasAudio": "Has Audio",
         "dongtai.filter.fourK": "4K Quality",
@@ -1402,6 +1403,7 @@ private let translations: [LocalizationService.Language: [String: String]] = [
         "importCookies": "导入 Cookie",
         // DongTai (Dynamic Wallpaper)
         "dongtai": "动态桌面",
+        "wallsflow": "Wallsflow 动态壁纸",
         "dongtai.filters": "质量筛选",
         "dongtai.filter.hasAudio": "含音频",
         "dongtai.filter.fourK": "4K 画质",
@@ -2453,6 +2455,7 @@ private let translations: [LocalizationService.Language: [String: String]] = [
         "importCookies": "Cookie をインポート",
         // DongTai (Dynamic Wallpaper)
         "dongtai": "Dynamic Wallpaper",
+        "wallsflow": "Wallsflow",
         "dongtai.filters": "品質フィルター",
         "dongtai.filter.hasAudio": "音声あり",
         "dongtai.filter.fourK": "4K 品質",
