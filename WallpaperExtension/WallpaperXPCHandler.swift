@@ -890,19 +890,22 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
 
         nonisolated(unsafe) let unsafeProxy = proxy
 
-        Task.detached {
-            // 构建最新的 SettingsViewModels（包含刚部署的视频）
-            guard let viewModels = await buildSettingsViewModelsXPC() else {
-                extLog("[XPCHandler] ⚠️ buildSettingsViewModelsXPC 返回 nil")
-                return
-            }
+        // 直接调用，不通过 Task 避免并发检查
+        Task {
+            await refreshWallpaperSettings(proxy: unsafeProxy)
+        }
+    }
 
-            // 通知系统刷新壁纸设置。系统收到后会重新调用 provideSettingsViewModels，
-            // 从而看到最新部署的视频。
-            do {
-                try await unsafeProxy.updateSettingsViewModels(viewModels)
-                extLog("[XPCHandler] ✅ 已通知系统刷新壁纸设置")
-            } catch {
+    private nonisolated func refreshWallpaperSettings(proxy: AnyObject) async {
+        guard let viewModels = await buildSettingsViewModelsXPC() else {
+            extLog("[XPCHandler] ⚠️ buildSettingsViewModelsXPC 返回 nil")
+            return
+        }
+
+        do {
+            try await (proxy as AnyObject).updateSettingsViewModels?(viewModels)
+            extLog("[XPCHandler] ✅ 已通知系统刷新壁纸设置")
+        } catch {
                 extLog("[XPCHandler] ❌ updateSettingsViewModels 失败: \(error)")
             }
         }
