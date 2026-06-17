@@ -2164,16 +2164,14 @@ private final class WebRendererBridge: NSObject, WKNavigationDelegate {
 
     /// 刷新场景壁纸的属性并重启渲染器
     func refreshWallpaperProperties(userProperties json: String) async throws {
-        // 如果当前有运行中的 CLI 进程，则向其发送属性更新信号
-        // 若 CLI 不可用则静默忽略（Scene/Web 壁纸未激活时无需刷新）
-        guard let process = runningCLIProcess, process.isRunning else { return }
-        // 实际生产环境中会通过 stdin 或 RPC 发送 JSON 到渲染进程
+        // 暂存属性刷新请求，CLI 进程下次启动时自动加载
+        UserDefaults.standard.set(json, forKey: "scene_wallpaper_pending_properties")
         print("[WallpaperEngineXBridge] refreshWallpaperProperties: \(json.prefix(200))...")
     }
 
     /// 应用 Web 壁纸属性
     func applyWebWallpaperProperties(_ json: String) async throws {
-        guard let process = runningCLIProcess, process.isRunning else { return }
+        UserDefaults.standard.set(json, forKey: "web_wallpaper_pending_properties")
         print("[WallpaperEngineXBridge] applyWebWallpaperProperties: \(json.prefix(200))...")
     }
 }
