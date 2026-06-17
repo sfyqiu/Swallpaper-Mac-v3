@@ -216,6 +216,9 @@ struct ContentView: View {
     @State private var updateRelease: GitHubRelease?
     @State private var updateCommit: GitHubCommit?
 
+    // 导入进度弹窗
+    @State private var showImportSheet = false
+
     var body: some View {
         ZStack {
             NavigationStack(path: $detailPath) {
@@ -282,6 +285,15 @@ struct ContentView: View {
         }
         .ignoresSafeArea()
         .applyTheme()
+        .importProgressSheet(isPresented: $showImportSheet)
+        .onReceive(NotificationCenter.default.publisher(for: .startImportFromMenu)) { notification in
+            if let urls = notification.userInfo?["urls"] as? [URL] {
+                Task {
+                    await ImportService.shared.importURLs(urls)
+                }
+                showImportSheet = true
+            }
+        }
     }
 
     private var globalOverlayLayer: some View {

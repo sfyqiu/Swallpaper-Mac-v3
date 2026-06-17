@@ -330,4 +330,5 @@ extension Notification.Name {
     static let appDidReceiveMemoryPressure = Notification.Name("appDidReceiveMemoryPressure")
     static let switchToLibraryTab = Notification.Name("switchToLibraryTab")
     static let wallpaperAPIKeyDidChange = Notification.Name("wallpaperAPIKeyDidChange")
+    static let startImportFromMenu = Notification.Name("startImportFromMenu")
 }

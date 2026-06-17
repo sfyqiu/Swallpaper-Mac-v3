@@ -69,22 +69,42 @@ struct LibraryFolderCard: View {
 
     @State private var isHovered = false
     @State private var isDropTarget = false
+    @State private var isAuthenticating = false
+    @ObservedObject private var lockService = FolderLockService.shared
 
     private var thumbnailHeight: CGFloat {
         LibraryCardMetrics.thumbnailHeight
     }
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            let folderID = folder.id
+            if !lockService.isFolderUnlocked(folderID) {
+                Task { @MainActor in
+                    isAuthenticating = true
+                    let success = await lockService.unlockFolder(folderID: folderID, reason: "解锁此文件夹以查看内容")
+                    isAuthenticating = false
+                    if success {
+                        onTap()
+                    }
+                }
+            } else {
+                onTap()
+            }
+        }) {
             VStack(alignment: .leading, spacing: 0) {
                 // 图片区域
                 ZStack {
                     Color(hex: "1A1D24").opacity(0.3)
 
-                    FolderStackView(
-                        imageURLs: previewURLs,
-                        size: CGSize(width: cardWidth, height: thumbnailHeight)
-                    )
+                    if lockService.isFolderUnlocked(folder.id) {
+                        FolderStackView(
+                            imageURLs: previewURLs,
+                            size: CGSize(width: cardWidth, height: thumbnailHeight)
+                        )
+                    } else {
+                        LockedFolderOverlay(iconSize: 36)
+                    }
                 }
                 .frame(width: cardWidth, height: thumbnailHeight)
                 .clipped()
@@ -135,6 +155,22 @@ struct LibraryFolderCard: View {
             isHovered = hovering
         }
         .contextMenu {
+            if lockService.isFolderUnlocked(folder.id) {
+                Button {
+                    lockService.lockFolder(folder.id)
+                } label: {
+                    Label(t("lock.folder"), systemImage: "lock.fill")
+                }
+            } else {
+                Button {
+                    Task { @MainActor in
+                        _ = await lockService.unlockFolder(folderID: folder.id, reason: t("unlock.folder"))
+                    }
+                } label: {
+                    Label(t("unlock.folder"), systemImage: "lock.open.fill")
+                }
+            }
+            Divider()
             Button(role: .destructive, action: onDisband) {
                 Label(t("disband.folder"), systemImage: "folder.badge.minus")
             }

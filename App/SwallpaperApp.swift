@@ -292,11 +292,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.restoreAllDataAsync()
         }
 
-        // 启动探索网格内存监控（800MB / 150 entries 阈值，触发 LRU trim）
-        // ⚠️ 必须异步启动，禁止在 init 路径或 applicationDidFinishLaunching 同步调用，
-        // 避免触发 macOS 26 _CFXPreferences 隐式递归
+        // 启动 AppResponsivenessMonitor（应用响应监控，监测主线程卡顿）
         DispatchQueue.main.async {
-            // ExploreGridMemoryMonitor 已移除，Kingfisher 管理自己的缓存
+            AppResponsivenessMonitor.shared.startMonitoring()
         }
 
         // 注：更新检查已移到 ContentView 中处理
@@ -651,6 +649,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 
+        // 文件菜单
+        let fileMenuItem = NSMenuItem()
+        let fileMenu = NSMenu(title: "文件")
+        fileMenu.addItem(withTitle: LocalizationService.shared.t("import"), action: #selector(importWallpapersFromMenu(_:)), keyEquivalent: "i")
+        fileMenu.addItem(NSMenuItem.separator())
+        fileMenu.addItem(withTitle: LocalizationService.shared.t("lock.all"), action: #selector(lockAllFolders(_:)), keyEquivalent: "l")
+        fileMenuItem.submenu = fileMenu
+        mainMenu.addItem(fileMenuItem)
+
         // Edit 菜单（使 TextField 支持 Cmd+C / Cmd+V / Cmd+A 等）
         let editMenuItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
@@ -673,6 +680,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainMenu.addItem(windowMenuItem)
 
         NSApp.mainMenu = mainMenu
+    }
+
+    // MARK: - 菜单栏 Action
+
+    @objc private func importWallpapersFromMenu(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.canChooseHiddenFiles = false
+        panel.prompt = "选择要导入的文件或目录"
+        panel.message = "支持图片、视频、Steam Workshop 目录（含 project.json）"
+        panel.allowedContentTypes = [.image, .movie, .folder, .package]
+        panel.allowsOtherFileTypes = true
+
+        guard panel.runModal() == .OK else { return }
+
+        let urls = panel.urls
+        NotificationCenter.default.post(
+            name: .startImportFromMenu,
+            object: nil,
+            userInfo: ["urls": urls]
+        )
+    }
+
+    @objc private func lockAllFolders(_ sender: Any?) {
+        FolderLockService.shared.lockAllFolders()
+        print("[AppDelegate] All folders locked via menu")
     }
 
     private func updateActivationPolicy(showDockIcon: Bool) {
