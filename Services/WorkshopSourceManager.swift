@@ -121,8 +121,6 @@ class WorkshopSourceManager: ObservableObject {
         case all = "all"
         case scene = "Scene"
         case video = "Video"
-        case web = "Web"
-        case application = "Application"
 
         var id: String { rawValue }
 
@@ -131,8 +129,6 @@ class WorkshopSourceManager: ObservableObject {
             case .all: return t("workshop.type.all")
             case .scene: return t("workshop.type.scene")
             case .video: return t("workshop.type.video")
-            case .web: return t("workshop.type.web")
-            case .application: return t("workshop.type.application")
             }
         }
 
@@ -141,8 +137,6 @@ class WorkshopSourceManager: ObservableObject {
             case .all: return "square.grid.2x2"
             case .scene: return "cube.fill"
             case .video: return "film.fill"
-            case .web: return "safari.fill"
-            case .application: return "app.fill"
             }
         }
 
@@ -151,8 +145,6 @@ class WorkshopSourceManager: ObservableObject {
             case .all: return ["FF9B58", "F54E42"]
             case .scene: return ["9B5DE5", "F15BB5"]
             case .video: return ["E71D36", "FF9F1C"]
-            case .web: return ["00BBF9", "3A86FF"]
-            case .application: return ["00F5D4", "01BE96"]
             }
         }
     }
