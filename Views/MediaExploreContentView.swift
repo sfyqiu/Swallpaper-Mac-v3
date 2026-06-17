@@ -61,6 +61,7 @@ struct MediaExploreContentView: View {
     @State private var selectedWorkshopType: WorkshopSourceManager.WorkshopTypeFilter = .all
     @State private var selectedWorkshopContentLevel: WorkshopSourceManager.WorkshopContentLevel? = .everyone
     @State private var selectedWorkshopResolution: WorkshopSourceManager.WorkshopResolution? = nil
+    @State private var highQualityMode = false
     @State private var workshopSearchQuery: String = ""
     @State private var selectedWorkshopSort: WorkshopSortOption = .trendWeek
     @State private var showWorkshopURLSheet = false
@@ -328,13 +329,17 @@ struct MediaExploreContentView: View {
                 workshopTagsSection
                 activeFiltersSection
             case .dongtai:
+                highQualityFilterSection
                 dongtaiFilterSection
                 dongtaiActiveFiltersSection
             case .pexels:
+                highQualityFilterSection
                 EmptyView()
             case .coverr:
+                highQualityFilterSection
                 EmptyView()
             default:
+                highQualityFilterSection
                 EmptyView()
             }
             contentHeader.padding(.top, 12)
@@ -542,26 +547,42 @@ struct MediaExploreContentView: View {
                 }
                 workshopResolutionMenu
             }
+        }
+    }
 
-            // 内容级别按钮（Everyone/Sketchy/NSFW）— 小标签样式，放在分类标签末尾
-            FlowLayout(spacing: 12) {
-                ForEach(visibleWorkshopContentLevels) { level in
-                    TagChip(
-                        title: level.title,
-                        isSelected: selectedWorkshopContentLevel?.id == level.id
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            if selectedWorkshopContentLevel?.id == level.id {
-                                selectedWorkshopContentLevel = .everyone
-                            } else {
-                                selectedWorkshopContentLevel = level
-                            }
-                            Task { await applyWorkshopFilters() }
-                        }
+    // MARK: - 高质量模式（所有源通用）
+
+    private var highQualityFilterSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "sparkle.magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundStyle(highQualityMode ? Color.orange : Color.white.opacity(0.3))
+                Text("🔥 " + t("highQualityMode"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(highQualityMode ? Color.orange : arcSettings.secondaryText.opacity(0.46))
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { highQualityMode },
+                    set: { newValue in
+                        highQualityMode = newValue
+                        Task { await refreshCurrentSource() }
                     }
-                }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+            if highQualityMode {
+                Text(t("highQualityModeDesc"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.orange.opacity(0.7))
             }
         }
+    }
+
+    private func refreshCurrentSource() async {
+        // 触发当前源刷新
+        NotificationCenter.default.post(name: .workshopSourceChanged, object: nil)
     }
 
     private var workshopTagsSection: some View {
@@ -593,7 +614,60 @@ struct MediaExploreContentView: View {
 
     @ViewBuilder
     private var filterSection: some View {
-        EmptyView()
+        VStack(alignment: .leading, spacing: 16) {
+            // 🔥 高质量模式
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(highQualityMode ? Color.orange : Color.white.opacity(0.3))
+                    Text("🔥 " + t("highQualityMode"))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(highQualityMode ? Color.orange : arcSettings.secondaryText.opacity(0.46))
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { highQualityMode },
+                        set: { newValue in
+                            highQualityMode = newValue
+                            Task { await refreshCurrentSource() }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                }
+                if highQualityMode {
+                    Text(t("highQualityModeDesc"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.orange.opacity(0.7))
+                }
+            }
+
+            // 内容级别（Workshop 专属）
+            if workshopSourceManager.activeSource == .motionBG || workshopSourceManager.activeSource == .wallpaperEngine {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(t("contentLevel"))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(arcSettings.secondaryText.opacity(0.46))
+                    FlowLayout(spacing: 12) {
+                        ForEach(visibleWorkshopContentLevels) { level in
+                            TagChip(
+                                title: level.title,
+                                isSelected: selectedWorkshopContentLevel?.id == level.id
+                            ) {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    if selectedWorkshopContentLevel?.id == level.id {
+                                        selectedWorkshopContentLevel = .everyone
+                                    } else {
+                                        selectedWorkshopContentLevel = level
+                                    }
+                                    Task { await refreshCurrentSource() }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private var workshopResolutionMenu: some View {
