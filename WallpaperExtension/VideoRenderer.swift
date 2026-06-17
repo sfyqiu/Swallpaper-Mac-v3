@@ -637,10 +637,11 @@ final class VideoRenderer: @unchecked Sendable {
                 return
             }
 
+            nonisolated(unsafe) let unsafeSelf = self
             DispatchQueue.main.async {
-                guard let self, self.asset.url == sourceAsset.url else { return }
-                self.backgroundFrameLayer.contents = cgImage
-                self.backgroundFrameLayer.opacity = 1
+                guard unsafeSelf.asset.url == sourceAsset.url else { return }
+                unsafeSelf.backgroundFrameLayer.contents = cgImage
+                unsafeSelf.backgroundFrameLayer.opacity = 1
                 extLog("  [Renderer] 底图封面已渲染: \(sourceAsset.url.lastPathComponent)")
             }
         }
@@ -663,10 +664,11 @@ final class VideoRenderer: @unchecked Sendable {
                 return
             }
 
+            nonisolated(unsafe) let unsafeSelf = self
             DispatchQueue.main.async {
-                guard let self, self.isPaused else { return }
-                self.stillFrameLayer.contents = cgImage
-                self.stillFrameLayer.opacity = 1
+                guard let unsafeSelf, unsafeSelf.isPaused else { return }
+                unsafeSelf.stillFrameLayer.contents = cgImage
+                unsafeSelf.stillFrameLayer.opacity = 1
             }
         }
     }

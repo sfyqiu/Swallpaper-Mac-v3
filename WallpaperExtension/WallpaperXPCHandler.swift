@@ -890,7 +890,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
 
         nonisolated(unsafe) let unsafeProxy = proxy
 
-        Task {
+        Task.detached {
             // 构建最新的 SettingsViewModels（包含刚部署的视频）
             guard let viewModels = await buildSettingsViewModelsXPC() else {
                 extLog("[XPCHandler] ⚠️ buildSettingsViewModelsXPC 返回 nil")
