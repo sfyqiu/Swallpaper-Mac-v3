@@ -2,6 +2,14 @@ import AppKit
 import CoreGraphics
 
 extension NSScreen {
+    /// 快速获取 CGDirectDisplayID
+    var displayID: CGDirectDisplayID {
+        guard let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return CGDirectDisplayID(0)
+        }
+        return CGDirectDisplayID(screenNumber.uint32Value)
+    }
+
     /// 返回稳定的屏幕标识符，用于跨模块的屏幕级状态字典 key。
     ///
     /// 优先使用 `NSScreenNumber`（CGDirectDisplayID 的字符串形式），它在同一物理显示器
