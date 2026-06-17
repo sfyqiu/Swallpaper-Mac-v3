@@ -658,6 +658,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         fileMenu.addItem(withTitle: LocalizationService.shared.t("import"), action: #selector(importWallpapersFromMenu(_:)), keyEquivalent: "i")
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: LocalizationService.shared.t("lock.all"), action: #selector(lockAllFolders(_:)), keyEquivalent: "l")
+        fileMenu.addItem(NSMenuItem.separator())
+        fileMenu.addItem(withTitle: "Scene 壁纸编辑器", action: #selector(openSceneDesigner(_:)), keyEquivalent: "")
+        fileMenu.addItem(withTitle: "Web 壁纸编辑器", action: #selector(openWebDesigner(_:)), keyEquivalent: "")
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -710,6 +713,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func lockAllFolders(_ sender: Any?) {
         FolderLockService.shared.lockAllFolders()
         print("[AppDelegate] All folders locked via menu")
+    }
+
+    @objc private func openSceneDesigner(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.title = "选择 Scene 壁纸项目"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            SceneWallpaperDesignPanelController.shared.present(for: url.path)
+        }
+    }
+
+    @objc private func openWebDesigner(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.title = "选择 Web 壁纸项目"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            WebWallpaperDesignPanelController.shared.present(for: url.path)
+        }
     }
 
     private func updateActivationPolicy(showDockIcon: Bool) {
