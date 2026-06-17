@@ -40,9 +40,15 @@ targets:
     sources:
       - path: App
       - path: Views
+        excludes:
+          - "SceneWallpaper*"
+          - "WebWallpaper*"
       - path: ViewModels
       - path: Models
       - path: Services
+        excludes:
+          - "SceneWallpaper*"
+          - "WebWallpaper*"
       - path: Utilities
       - path: Components
       - path: DesignSystem
@@ -76,7 +82,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/../Frameworks
         # 内嵌 assets zip 的 .o 文件（由 preBuildScript 生成）
-        OTHER_LDFLAGS: $(inherited) $(SRCROOT)/Resources/zip_data.o $(SRCROOT)/Resources/zip_accessor.o
+        OTHER_LDFLAGS: $(inherited) -framework LocalAuthentication $(SRCROOT)/Resources/zip_data.o $(SRCROOT)/Resources/zip_accessor.o
     dependencies:
       - package: SwiftSoup
       - package: Kanna

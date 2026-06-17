@@ -11,7 +11,7 @@ enum AppResponsivenessMonitor {
         var scenePhase: String = "launching"
     }
 
-    private static let queue = DispatchQueue(label: "com.waifux.responsiveness-monitor", qos: .utility)
+    private static let queue = DispatchQueue(label: "com.swallpaper.responsiveness-monitor", qos: .utility)
     private static let interval: TimeInterval = 1.0
     private static let stallThreshold: TimeInterval = 2.5
     nonisolated(unsafe) private static var timer: DispatchSourceTimer?
