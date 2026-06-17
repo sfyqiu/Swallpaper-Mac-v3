@@ -216,6 +216,12 @@ final class VideoWallpaperManager: ObservableObject {
         pendingWakeRebuildWorkItem = nil
     }
 
+    private var isLockScreenExtensionActive = false
+
+    func clearExtensionState() {
+        isLockScreenExtensionActive = false
+    }
+
     func applyVideoWallpaper(
         from localFileURL: URL,
         posterURL: URL? = nil,
