@@ -627,8 +627,6 @@ final class MediaExploreViewModel: ObservableObject {
                     switch workshopCurrentType {
                     case .scene: return .scene
                     case .video: return .video
-                    case .web: return .web
-                    case .application: return .application
                     case .all: return nil
                     }
                 }()
@@ -1479,8 +1477,6 @@ final class MediaExploreViewModel: ObservableObject {
             switch type {
             case .scene: return .scene
             case .video: return .video
-            case .web: return .web
-            case .application: return .application
             case .all: return nil
             }
         }()
@@ -1529,8 +1525,6 @@ final class MediaExploreViewModel: ObservableObject {
             switch workshopCurrentType {
             case .scene: return .scene
             case .video: return .video
-            case .web: return .web
-            case .application: return .application
             case .all: return nil
             }
         }()
