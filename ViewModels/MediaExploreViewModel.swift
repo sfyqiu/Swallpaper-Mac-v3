@@ -1188,16 +1188,13 @@ final class MediaExploreViewModel: ObservableObject {
                 updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.72 : 1.0)
             }
         } else {
-            // 使用大文件下载（直接写入磁盘，不占内存，超时 600 秒）
-            let tempURL = try await networkService.downloadFile(from: downloadOption.remoteURL) { progress in
+            let data = try await networkService.fetchData(from: downloadOption.remoteURL) { progress in
                 guard let taskID else { return }
-                let adjustedProgress = saveToDownloads ? progress * 0.9 : progress
                 Task { @MainActor in
-                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(adjustedProgress, 0.9))
+                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(progress * 0.86, 0.86))
                 }
             }
-            // 将临时文件移到缓存目录
-            cachedURL = try await cacheService.moveFileToCache(tempURL, named: fileURL.lastPathComponent, in: "Media")
+            cachedURL = try await cacheService.cacheFile(data, named: fileURL.lastPathComponent, in: "Media")
             if let taskID {
                 updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.9 : 1.0)
             }
@@ -1214,11 +1211,9 @@ final class MediaExploreViewModel: ObservableObject {
                         print("[MediaExploreViewModel] Created directory: \(directory.path)")
                     }
 
-                    // 使用文件复制代替内存加载+写入，避免大视频撑爆内存
-                    if FileManager.default.fileExists(atPath: fileURL.path) {
-                        try FileManager.default.removeItem(at: fileURL)
-                    }
-                    try FileManager.default.copyItem(at: cachedURL, to: fileURL)
+                    // 后台读取缓存文件 + 后台写入目标文件，避免 MainActor 阻塞
+                    let cachedData = try await cachedURL.readDataAsync()
+                    try await cachedData.writeAsync(to: fileURL, options: .atomic)
 
                     // 验证文件是否成功写入
                     if FileManager.default.fileExists(atPath: fileURL.path) {
