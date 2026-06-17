@@ -46,6 +46,22 @@ actor CacheService {
         return fileURL
     }
 
+    /// 将临时文件移动到缓存目录（替代 cacheFile，避免大文件重复拷贝内存）
+    func moveFileToCache(_ tempURL: URL, named fileName: String, in directoryName: String) async throws -> URL {
+        let directoryURL = cacheDirectory.appendingPathComponent(directoryName, isDirectory: true)
+        try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+
+        let fileURL = directoryURL.appendingPathComponent(fileName)
+        // 如果目标已存在，先删除
+        if fileManager.fileExists(atPath: fileURL.path) {
+            try fileManager.removeItem(at: fileURL)
+        }
+        try fileManager.copyItem(at: tempURL, to: fileURL)
+        // 清理临时文件
+        try? fileManager.removeItem(at: tempURL)
+        return fileURL
+    }
+
     func getCachedImage(for url: URL) -> Data? {
         let fileName = cacheKey(for: url)
         let fileURL = cacheDirectory.appendingPathComponent(fileName)

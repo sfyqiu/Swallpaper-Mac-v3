@@ -30,6 +30,17 @@ actor NetworkService {
         self.session = URLSession(configuration: config)
     }
 
+    /// 用于大文件下载的独立 URLSession（资源超时 600 秒）
+    private lazy var downloadSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 600
+        config.allowsCellularAccess = true
+        config.waitsForConnectivity = true
+        config.isDiscretionary = false
+        return URLSession(configuration: config)
+    }()
+
     // MARK: - Proxy Configuration
 
     func updateProxyConfiguration(enabled: Bool, host: String, port: String) {
@@ -274,6 +285,28 @@ actor NetworkService {
             let data = try await self.fetchDataInternal(from: url, attempt: attempt, progressHandler: progressHandler)
             return data
         }
+    }
+
+    // MARK: - 大文件下载
+
+    /// 大文件下载，直接写入临时文件（不占用内存），支持进度回调
+    /// - Parameters:
+    ///   - url: 下载地址
+    ///   - progressHandler: 进度回调 0.0~1.0
+    /// - Returns: 临时文件 URL（调用方需自行移入目标目录）
+    func downloadFile(from url: URL, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
+        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        let (tempURL, response) = try await downloadSession.download(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw NetworkError.invalidResponse
+        }
+
+        // 如果有进度回调，在下载完成后报告 100%
+        progressHandler?(1.0)
+
+        return tempURL
     }
 
     // MARK: - 快速连通性检测（不等待网络恢复，适合 API 测试和启动源选择）

@@ -1188,13 +1188,15 @@ final class MediaExploreViewModel: ObservableObject {
                 updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.72 : 1.0)
             }
         } else {
-            let data = try await networkService.fetchData(from: downloadOption.remoteURL) { progress in
+            // 使用大文件下载（直接写入磁盘，不占内存，超时 600 秒）
+            let tempURL = try await networkService.downloadFile(from: downloadOption.remoteURL) { progress in
                 guard let taskID else { return }
                 Task { @MainActor in
                     DownloadTaskService.shared.updateProgress(id: taskID, progress: min(progress * 0.86, 0.86))
                 }
             }
-            cachedURL = try await cacheService.cacheFile(data, named: fileURL.lastPathComponent, in: "Media")
+            // 将临时文件移到缓存目录
+            cachedURL = try await cacheService.moveFileToCache(tempURL, named: fileURL.lastPathComponent, in: "Media")
             if let taskID {
                 updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.9 : 1.0)
             }
