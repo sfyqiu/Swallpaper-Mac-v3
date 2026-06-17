@@ -200,6 +200,21 @@ final class MediaGridCell: ExploreGridItem {
         }
     }
 
+    @objc private func openInPreview(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openInPlayer(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func showInFinder(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+    }
+
     override func layoutContentFrames() {
         let bounds = containerView.bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
