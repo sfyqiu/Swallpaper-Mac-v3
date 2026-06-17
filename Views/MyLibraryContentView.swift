@@ -536,6 +536,15 @@ struct MyLibraryContentView: View {
                     Label(t("remove.from.folder"), systemImage: "folder.badge.minus")
                 }
             }
+            Divider()
+            if let fileURL = item.localFileURL {
+                Button("用预览打开") {
+                    NSWorkspace.shared.open(fileURL)
+                }
+                Button("在 Finder 中显示") {
+                    NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+                }
+            }
         }
         card.draggable(dragPayload(for: item.id))
     }
@@ -659,6 +668,16 @@ struct MyLibraryContentView: View {
                     updateMediaItems()
                 } label: {
                     Label(t("remove.from.folder"), systemImage: "folder.badge.minus")
+                }
+            }
+            Divider()
+            if let fileURL = item.localFileURL {
+                let isVideo = item.mediaItem.previewVideoURL != nil || !item.mediaItem.downloadOptions.isEmpty
+                Button(isVideo ? "用播放器打开" : "用预览打开") {
+                    NSWorkspace.shared.open(fileURL)
+                }
+                Button("在 Finder 中显示") {
+                    NSWorkspace.shared.activateFileViewerSelecting([fileURL])
                 }
             }
         }
