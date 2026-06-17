@@ -543,10 +543,16 @@ class WorkshopSourceManager: ObservableObject {
 
     @Published private(set) var activeSource: SourceType
     @Published var lastSwitchMessage: String?
+    @Published var steamProfileID: String = "" {
+        didSet {
+            UserDefaults.standard.set(steamProfileID, forKey: profileIDKey)
+        }
+    }
 
     // MARK: - Storage Keys
 
     private let selectedSourceKey = "workshop_selected_source"
+    private let profileIDKey = "workshop_steam_profile_id"
 
     // MARK: - Internal State
 
@@ -562,6 +568,9 @@ class WorkshopSourceManager: ObservableObject {
         if let saved = UserDefaults.standard.string(forKey: selectedSourceKey),
            let source = SourceType(rawValue: saved) {
             activeSource = source
+        }
+        if let savedProfile = UserDefaults.standard.string(forKey: profileIDKey) {
+            steamProfileID = savedProfile
         }
     }
 
