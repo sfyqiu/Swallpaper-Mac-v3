@@ -1214,8 +1214,11 @@ final class MediaExploreViewModel: ObservableObject {
                         print("[MediaExploreViewModel] Created directory: \(directory.path)")
                     }
 
-                    let cachedData = try Data(contentsOf: cachedURL)
-                    try cachedData.write(to: fileURL, options: .atomic)
+                    // 使用文件复制代替内存加载+写入，避免大视频撑爆内存
+                    if FileManager.default.fileExists(atPath: fileURL.path) {
+                        try FileManager.default.removeItem(at: fileURL)
+                    }
+                    try FileManager.default.copyItem(at: cachedURL, to: fileURL)
 
                     // 验证文件是否成功写入
                     if FileManager.default.fileExists(atPath: fileURL.path) {
