@@ -555,6 +555,29 @@ private var languageBinding: Binding<LocalizationService.Language> {
                 }
             }
 
+            // 🔒 锁屏壁纸设置组（macOS 26.0+）
+            if LockScreenWallpaperService.shared.isAvailable {
+                MacSettingsSection(header: t("lockScreen")) {
+                    MacSettingsRow(
+                        title: t("lockScreen.enable"),
+                        subtitle: t("lockScreen.enableDesc"),
+                        showDivider: true
+                    ) {
+                        MacToggle(isOn: $viewModel.lockScreenEnabled)
+                    }
+
+                    if viewModel.lockScreenEnabled {
+                        MacSettingsRow(
+                            title: t("lockScreen.pauseDesktop"),
+                            subtitle: t("lockScreen.pauseDesktopDesc"),
+                            showDivider: false
+                        ) {
+                            MacToggle(isOn: $viewModel.pauseDesktopWhenLockScreen)
+                        }
+                    }
+                }
+            }
+
             // 数据管理组
             MacSettingsSection(header: t("dataManagement")) {
                 // API Key

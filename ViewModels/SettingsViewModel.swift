@@ -42,6 +42,32 @@ class SettingsViewModel: ObservableObject {
     @Published var nasaApiKey: String = "" { didSet { UserDefaults.standard.set(nasaApiKey, forKey: "nasa_api_key") } }
     @Published var coverrApiKey: String = "" { didSet { UserDefaults.standard.set(coverrApiKey, forKey: "coverr_api_key") } }
 
+    // MARK: - 锁屏壁纸设置
+
+    /// 是否启用锁屏壁纸同步（仅在 macOS 26.0+ 有效）
+    @Published var lockScreenEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(lockScreenEnabled, forKey: "lock_screen_enabled")
+            if lockScreenEnabled {
+                WallpaperExtensionSocketServer.shared.start()
+            } else {
+                Task { @MainActor in
+                    LockScreenWallpaperService.shared.clearLockScreenInstances()
+                }
+            }
+        }
+    }
+
+    /// 锁屏时是否暂停桌面视频播放
+    @Published var pauseDesktopWhenLockScreen: Bool = true {
+        didSet {
+            UserDefaults.standard.set(pauseDesktopWhenLockScreen, forKey: "pause_desktop_when_lock_screen")
+            Task { @MainActor in
+                LockScreenWallpaperService.shared.setAlwaysPauseDesktop(pauseDesktopWhenLockScreen)
+            }
+        }
+    }
+
     // MARK: - API 测试状态
     @Published var isTestingAPI: Bool = false
     @Published var apiTestResults: [(name: String, success: Bool, message: String)] = []
@@ -255,6 +281,10 @@ class SettingsViewModel: ObservableObject {
         coverrApiKey = defaults.string(forKey: "coverr_api_key") ?? ""
         unsplashAccessKey = defaults.string(forKey: "unsplash_access_key") ?? ""
         pexelsApiKey = defaults.string(forKey: "pexels_api_key") ?? ""
+
+        // 恢复锁屏设置
+        lockScreenEnabled = defaults.object(forKey: "lock_screen_enabled") as? Bool ?? false
+        pauseDesktopWhenLockScreen = defaults.object(forKey: "pause_desktop_when_lock_screen") as? Bool ?? true
         proxyEnabled = defaults.bool(forKey: "proxy_enabled")
         proxyHost = defaults.string(forKey: "proxy_host") ?? ""
         proxyPort = defaults.string(forKey: "proxy_port") ?? ""

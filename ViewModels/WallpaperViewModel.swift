@@ -1190,8 +1190,18 @@ class WallpaperViewModel: ObservableObject {
         // 注册壁纸以便跨 Space 同步
         DesktopWallpaperSyncManager.shared.registerWallpaperSet(imageURL)
 
-        // 更新静态壁纸颗粒蒙层（独立窗口，不受壁纸切换影响）
+        // 更新静态壁纸颗粒蒙层
         StaticWallpaperGrainManager.shared.updateOverlay()
+
+        // 🔒 如果启用了锁屏同步，将静态图推送到锁屏扩展
+        if LockScreenWallpaperService.shared.isAvailable,
+           UserDefaults.standard.bool(forKey: "lock_screen_enabled") {
+            let displayIDs = screens.map { $0.displayID }
+            try? await LockScreenWallpaperService.shared.cacheStaticImageSource(
+                imageURL: imageURL,
+                displayIDs: displayIDs
+            )
+        }
     }
 
     // MARK: - 设置壁纸到指定屏幕

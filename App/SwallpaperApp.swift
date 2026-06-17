@@ -234,7 +234,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         )
 
-        // 2. 立即创建窗口（使用 defer: false 立即渲染，不等待）
+        // 2. 初始化 Socket 服务器（仅在需要时由设置页启动）
+        WallpaperExtensionSocketServer.shared.start()
+
+        // 3. 立即创建窗口（使用 defer: false 立即渲染，不等待）
         let contentView = ContentView()
             .frame(
                 minWidth: Self.minimumWindowSize.width,
