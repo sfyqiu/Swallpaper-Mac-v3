@@ -100,7 +100,21 @@ final class MediaGridCell: ExploreGridItem {
         leadingTagBadge.isHidden = firstTag == nil
 
         let resolutionText = media.resolutionLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-        trailingBadge.configure(text: resolutionText.isEmpty ? nil : resolutionText)
+
+        // 构建徽标文本：分辨率 + 文件大小
+        var badgeText = resolutionText
+        if let fileSize = media.fileSize {
+            let sizeText = ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+            if !badgeText.isEmpty {
+                badgeText += " · \(sizeText)"
+            } else {
+                badgeText = sizeText
+            }
+        } else if let firstOption = media.downloadOptions.first, !firstOption.fileSizeLabel.isEmpty {
+            badgeText += " · \(firstOption.fileSizeLabel)"
+        }
+
+        trailingBadge.configure(text: badgeText.isEmpty ? nil : badgeText)
         trailingBadge.isHidden = resolutionText.isEmpty
 
         loadImage(urls: preferredImageURLs(for: media), targetSize: preferredImageTargetSize(for: media))

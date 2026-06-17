@@ -118,6 +118,11 @@ final class WallpaperGridCell: ExploreGridItem {
         purityBadge.configure(text: wallpaper.purityDisplayName)
         resolutionBadge.configure(text: wallpaper.effectiveResolutionLabel.replacingOccurrences(of: "x", with: "×"))
 
+        // 在分辨率后追加文件大小（如有）
+        if !wallpaper.fileSizeLabel.isEmpty {
+            resolutionBadge.configure(text: (resolutionBadge.hasContent ? (wallpaper.effectiveResolutionLabel.replacingOccurrences(of: "x", with: "×") + " · " + wallpaper.fileSizeLabel) : wallpaper.fileSizeLabel))
+        }
+
         if let hex = wallpaper.primaryColorHex, !hex.isEmpty {
             colorChip.isHidden = false
             colorChip.configure(hex: hex)
