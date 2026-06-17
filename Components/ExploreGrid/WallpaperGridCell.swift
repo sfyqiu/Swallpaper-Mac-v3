@@ -172,6 +172,13 @@ final class WallpaperGridCell: ExploreGridItem {
             previewItem.target = self
             previewItem.representedObject = imageURL
             menu.addItem(previewItem)
+
+            menu.addItem(.separator())
+
+            let copyItem = NSMenuItem(title: "复制下载链接", action: #selector(copyWallpaperURL(_:)), keyEquivalent: "")
+            copyItem.target = self
+            copyItem.representedObject = imageURL
+            menu.addItem(copyItem)
         }
 
         menu.addItem(.separator())
@@ -192,6 +199,12 @@ final class WallpaperGridCell: ExploreGridItem {
         menu.addItem(finderItem)
 
         self.menu = menu
+    }
+
+    @objc private func copyWallpaperURL(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
 
     @objc private func openWallpaperInPreview(_ sender: NSMenuItem) {

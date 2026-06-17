@@ -541,6 +541,10 @@ struct MyLibraryContentView: View {
                 Button("用预览打开") {
                     NSWorkspace.shared.open(fileURL)
                 }
+                Button("复制下载链接") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(fileURL.absoluteString, forType: .string)
+                }
                 Button("在 Finder 中显示") {
                     NSWorkspace.shared.activateFileViewerSelecting([fileURL])
                 }
@@ -675,6 +679,10 @@ struct MyLibraryContentView: View {
                 let isVideo = item.mediaItem.previewVideoURL != nil || !item.mediaItem.downloadOptions.isEmpty
                 Button(isVideo ? "用播放器打开" : "用预览打开") {
                     NSWorkspace.shared.open(fileURL)
+                }
+                Button("复制下载链接") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(fileURL.absoluteString, forType: .string)
                 }
                 Button("在 Finder 中显示") {
                     NSWorkspace.shared.activateFileViewerSelecting([fileURL])

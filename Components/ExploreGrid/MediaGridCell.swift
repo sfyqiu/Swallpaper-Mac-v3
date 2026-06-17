@@ -149,6 +149,27 @@ final class MediaGridCell: ExploreGridItem {
             playItem.target = self
             playItem.representedObject = videoURL
             menu.addItem(playItem)
+
+            menu.addItem(.separator())
+
+            // 复制下载链接
+            let copyItem = NSMenuItem(title: "复制下载链接", action: #selector(copyDownloadURL(_:)), keyEquivalent: "")
+            copyItem.target = self
+            copyItem.representedObject = videoURL
+            menu.addItem(copyItem)
+
+            // 用 FDM 下载
+            let fdmItem = NSMenuItem(title: "用 FDM 下载", action: #selector(downloadWithFDM(_:)), keyEquivalent: "")
+            fdmItem.target = self
+            fdmItem.representedObject = videoURL
+            menu.addItem(fdmItem)
+        } else if let posterURL = media.posterURL ?? URL(string: media.thumbnailURL.absoluteString) {
+            // 纯图片也提供复制链接
+            menu.addItem(.separator())
+            let copyItem = NSMenuItem(title: "复制下载链接", action: #selector(copyDownloadURL(_:)), keyEquivalent: "")
+            copyItem.target = self
+            copyItem.representedObject = posterURL
+            menu.addItem(copyItem)
         }
 
         menu.addItem(.separator())
@@ -162,19 +183,21 @@ final class MediaGridCell: ExploreGridItem {
         self.menu = menu
     }
 
-    @objc private func openInPreview(_ sender: NSMenuItem) {
+    @objc private func copyDownloadURL(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
-        NSWorkspace.shared.open(url)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
 
-    @objc private func openInPlayer(_ sender: NSMenuItem) {
+    @objc private func downloadWithFDM(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
-        NSWorkspace.shared.open(url)
-    }
-
-    @objc private func showInFinder(_ sender: NSMenuItem) {
-        guard let url = sender.representedObject as? URL else { return }
-        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+        // 复制链接到剪贴板
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+        // 尝试打开 FDM（如果已安装）
+        if let fdmURL = URL(string: "fdm://") {
+            NSWorkspace.shared.open(fdmURL)
+        }
     }
 
     override func layoutContentFrames() {
