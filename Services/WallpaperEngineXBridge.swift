@@ -1182,6 +1182,16 @@ final class WallpaperEngineXBridge: ObservableObject {
                 lhs.screenID < rhs.screenID
             }
     }
+
+    // MARK: - Scene / Web 壁纸属性刷新
+
+    func refreshWallpaperProperties(userProperties json: String) async throws {
+        UserDefaults.standard.set(json, forKey: "scene_wallpaper_pending_properties")
+    }
+
+    func applyWebWallpaperProperties(_ json: String) async throws {
+        UserDefaults.standard.set(json, forKey: "web_wallpaper_pending_properties")
+    }
 }
 
 // MARK: - Web 壁纸旧流程（WKWebView）
@@ -2158,18 +2168,6 @@ private final class WebRendererBridge: NSObject, WKNavigationDelegate {
             ])
             DesktopWallpaperSyncManager.shared.registerWallpaperSet(dst, for: screen)
         }
-    }
-
-    // MARK: - Scene / Web 壁纸属性刷新（由 SceneWallpaperPropertiesPanel / WebWallpaperDesignPanel 调用）
-
-    func refreshWallpaperProperties(userProperties json: String) async throws {
-        UserDefaults.standard.set(json, forKey: "scene_wallpaper_pending_properties")
-        print("[WallpaperEngineXBridge] refreshWallpaperProperties: \(json.prefix(200))...")
-    }
-
-    func applyWebWallpaperProperties(_ json: String) async throws {
-        UserDefaults.standard.set(json, forKey: "web_wallpaper_pending_properties")
-        print("[WallpaperEngineXBridge] applyWebWallpaperProperties: \(json.prefix(200))...")
     }
 }
 
