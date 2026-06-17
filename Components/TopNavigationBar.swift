@@ -3,7 +3,7 @@ import AppKit
 
 // MARK: - 主标签类型
 public enum MainTab: String, CaseIterable {
-    case home, wallpaperExplore, animeExplore, mediaExplore, myMedia
+    case home, wallpaperExplore, animeExplore, mediaExplore, myMedia, downloads
 
     static var visibleCases: [MainTab] { allCases.filter { $0 != .animeExplore } }
 
@@ -14,6 +14,7 @@ public enum MainTab: String, CaseIterable {
         case .mediaExplore: return t("nav.media")
         case .animeExplore: return t("nav.anime")
         case .myMedia: return t("nav.myMedia")
+        case .downloads: return "下载进度"
         }
     }
 
@@ -24,6 +25,7 @@ public enum MainTab: String, CaseIterable {
         case .mediaExplore: return "film"
         case .animeExplore: return "play.tv"
         case .myMedia: return "heart"
+        case .downloads: return "arrow.down.circle"
         }
     }
 }

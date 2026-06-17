@@ -57,6 +57,7 @@ private extension MainTab {
         case .animeExplore: return 2  // hidden, never selected
         case .mediaExplore: return 2
         case .myMedia: return 3
+        case .downloads: return 4
         }
     }
 }
@@ -121,6 +122,7 @@ private final class MainTabViewController: NSTabViewController {
         addPage(title: MainTab.myMedia.title, view: MyLibraryTabPage(
             navigationState: navigationState
         ))
+        addPage(title: MainTab.downloads.title, view: DownloadsTabPage())
 
         isConfigured = true
         select(tab: navigationState.selectedTab)
@@ -200,6 +202,12 @@ private struct MyLibraryTabPage: View {
             mediaContext: navigationState.binding(for: \.libraryMediaContext)
         )
         .environment(\.coverGIFPlaybackHostActive, navigationState.selectedTab == .myMedia)
+    }
+}
+
+private struct DownloadsTabPage: View {
+    var body: some View {
+        DownloadsView()
     }
 }
 
