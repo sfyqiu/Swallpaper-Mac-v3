@@ -888,24 +888,22 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
             return
         }
 
-        nonisolated(unsafe) let unsafeProxy = proxy
+        let proxyBox = _SendableBox(value: proxy)
 
-        // 直接调用，不通过 Task 避免并发检查
-        Task {
-            await refreshWallpaperSettings(proxy: unsafeProxy)
-        }
-    }
+        Task.detached {
+            let unsafeProxy = proxyBox.value
+            // 构建最新的 SettingsViewModels（包含刚部署的视频）
+            guard let viewModels = await buildSettingsViewModelsXPC() else {
+                extLog("[XPCHandler] ⚠️ buildSettingsViewModelsXPC 返回 nil")
+                return
+            }
 
-    private nonisolated func refreshWallpaperSettings(proxy: AnyObject) async {
-        guard let viewModels = await buildSettingsViewModelsXPC() else {
-            extLog("[XPCHandler] ⚠️ buildSettingsViewModelsXPC 返回 nil")
-            return
-        }
-
-        do {
-            try await (proxy as AnyObject).updateSettingsViewModels?(viewModels)
-            extLog("[XPCHandler] ✅ 已通知系统刷新壁纸设置")
-        } catch {
+            // 通知系统刷新壁纸设置。系统收到后会重新调用 provideSettingsViewModels，
+            // 从而看到最新部署的视频。
+            do {
+                try await unsafeProxy.updateSettingsViewModels(viewModels)
+                extLog("[XPCHandler] ✅ 已通知系统刷新壁纸设置")
+            } catch {
                 extLog("[XPCHandler] ❌ updateSettingsViewModels 失败: \(error)")
             }
         }
@@ -1064,4 +1062,9 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
         extLog("  Created WallpaperRemoteContextXPC via ivar (contextId: \(contextId), offset: \(ivarOffset))")
         return obj
     }
+}
+
+// MARK: - Sendable 包装（XPC proxy 实际上是线程安全的）
+private struct _SendableBox: @unchecked Sendable {
+    let value: AnyObject
 }
