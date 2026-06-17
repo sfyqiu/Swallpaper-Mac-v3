@@ -40,15 +40,9 @@ targets:
     sources:
       - path: App
       - path: Views
-        excludes:
-          - "SceneWallpaper*"
-          - "WebWallpaper*"
       - path: ViewModels
       - path: Models
       - path: Services
-        excludes:
-          - "SceneWallpaper*"
-          - "WebWallpaper*"
       - path: Utilities
       - path: Components
       - path: DesignSystem

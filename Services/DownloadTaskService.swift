@@ -39,6 +39,34 @@ private actor DownloadTaskStorage {
     func resetCancellationFlag(id: String) {
         cancellationFlags[id] = false
     }
+
+    var activeCount: Int { activeDownloads.count }
+}
+
+/// 并发下载限流器，限制同时运行的下载任务数量，避免网络过载
+private actor DownloadConcurrencyLimiter {
+    static let shared = DownloadConcurrencyLimiter()
+    private let maxConcurrent = 3
+    private var running = 0
+    private var queue: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        running += 1
+        if running <= maxConcurrent { return }
+        running -= 1
+        await withCheckedContinuation { continuation in
+            queue.append(continuation)
+        }
+        running += 1
+    }
+
+    func release() {
+        running -= 1
+        if !queue.isEmpty {
+            let continuation = queue.removeFirst()
+            continuation.resume()
+        }
+    }
 }
 
 @MainActor
@@ -156,6 +184,18 @@ class DownloadTaskService: ObservableObject {
         persistTasks()
 
         print("[DownloadTaskService] Task \(id) cancelled")
+    }
+
+    // MARK: - 并发下载限流
+
+    /// 获取下载许可（最多同时 3 个下载）
+    func acquireDownloadSlot() async {
+        await DownloadConcurrencyLimiter.shared.acquire()
+    }
+
+    /// 释放下载许可
+    func releaseDownloadSlot() {
+        Task { await DownloadConcurrencyLimiter.shared.release() }
     }
 
     // MARK: - Active Download Management

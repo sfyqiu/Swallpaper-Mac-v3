@@ -63,6 +63,9 @@ final class VideoWallpaperManager: ObservableObject {
 
     private var windows: [String: WallpaperVideoWindow] = [:]
     private var players: [String: AVQueuePlayer] = [:]
+    /// 预加载的下一首 AVPlayerItem，用于实现秒切切换
+    private var preloadedItem: (url: URL, item: AVPlayerItem)?
+
     private var loopers: [String: AVPlayerLooper] = [:]
     /// 延迟释放的工作项，用于取消上一次未执行的清理，避免快速切换时多组 AVPlayer 并发驻留
     private var pendingPlayerCleanups: [DispatchWorkItem] = []
@@ -2307,6 +2310,24 @@ final class VideoLoopPreprocessingService: ObservableObject {
         tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("SwallpaperLoopExport", isDirectory: true)
         try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+    }
+
+    // MARK: - 视频预加载
+
+    /// 预加载指定 URL 的视频，使其在切换到该壁纸时能够秒开。
+    /// 首次调用时在后台创建 AVPlayerItem，下次切换同 URL 时直接复用。
+    func preloadVideo(url: URL) {
+        guard url != currentVideoURL, preloadedItem?.url != url else { return }
+        // 释放旧的预加载
+        preloadedItem = nil
+        let asset = AVAsset(url: url)
+        let item = AVPlayerItem(asset: asset)
+        // 主动触发首帧加载（后台线程）
+        Task(priority: .background) {
+            _ = try? await asset.load(.preferredDisplayCriteria)
+            // 保持 item 引用，applyVideoWallpaper 会检查并使用它
+        }
+        preloadedItem = (url, item)
     }
 
     // MARK: - Query
