@@ -4,7 +4,6 @@ import SwiftUI
 
 struct DownloadsView: View {
     @StateObject private var downloadService = DownloadTaskService.shared
-    @ObservedObject private var arcSettings = ArcBackgroundSettings.shared
     @State private var selectedFilter: DownloadFilter = .all
 
     enum DownloadFilter: String, CaseIterable {
@@ -20,7 +19,7 @@ struct DownloadsView: View {
             HStack {
                 Text(t("downloads"))
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(arcSettings.primaryText)
+                    .foregroundStyle(Color.white.opacity(0.85))
                 Spacer()
                 if !downloadService.tasks.isEmpty {
                     Button(t("clear")) {
@@ -70,7 +69,7 @@ struct DownloadsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(arcSettings.appBackground)
+        .background(Color.black.opacity(0.95))
     }
 
     @ViewBuilder
@@ -79,10 +78,10 @@ struct DownloadsView: View {
             Spacer().frame(height: 60)
             Image(systemName: "arrow.down.circle")
                 .font(.system(size: 40))
-                .foregroundStyle(arcSettings.secondaryText.opacity(0.3))
+                .foregroundStyle(Color.white.opacity(0.3))
             Text(emptyText)
                 .font(.system(size: 14))
-                .foregroundStyle(arcSettings.secondaryText.opacity(0.5))
+                .foregroundStyle(Color.white.opacity(0.5))
         }
     }
 
@@ -140,12 +139,12 @@ private struct DownloadTaskRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(arcSettings.primaryText)
+                    .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(1)
 
                 Text(statusText)
                     .font(.system(size: 11))
-                    .foregroundStyle(arcSettings.secondaryText.opacity(0.5))
+                    .foregroundStyle(Color.white.opacity(0.5))
             }
 
             Spacer()
@@ -186,7 +185,7 @@ private struct DownloadTaskRow: View {
                 if task.status == .pending {
                     Text("等待中")
                         .font(.system(size: 11))
-                        .foregroundStyle(arcSettings.secondaryText.opacity(0.5))
+                        .foregroundStyle(Color.white.opacity(0.5))
                 }
             }
         }
@@ -215,6 +214,7 @@ private struct DownloadTaskRow: View {
         case .failed: return "exclamationmark.circle"
         case .paused: return "pause.circle"
         case .pending: return "clock"
+        case .cancelled: return "xmark.circle"
         }
     }
 
@@ -225,6 +225,7 @@ private struct DownloadTaskRow: View {
         case .failed: return .red
         case .paused: return .orange
         case .pending: return .gray
+        case .cancelled: return .gray
         }
     }
 
@@ -235,6 +236,7 @@ private struct DownloadTaskRow: View {
         case .failed: return "下载失败"
         case .paused: return "已暂停"
         case .pending: return "排队等待中"
+        case .cancelled: return "已取消"
         }
     }
 
