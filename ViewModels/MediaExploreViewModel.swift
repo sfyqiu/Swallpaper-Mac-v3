@@ -1223,6 +1223,10 @@ final class MediaExploreViewModel: ObservableObject {
                     // 验证文件是否成功写入
                     if FileManager.default.fileExists(atPath: fileURL.path) {
                         print("[MediaExploreViewModel] ✅ File saved successfully: \(fileURL.path)")
+                        // 后台生成缩略图缓存，避免我的库加载时卡顿
+                        Task(priority: .background) {
+                            _ = await VideoThumbnailCache.shared.thumbnailImage(for: fileURL)
+                        }
                     } else {
                         print("[MediaExploreViewModel] ❌ File write appeared to succeed but file not found: \(fileURL.path)")
                         throw DownloadError.writeFailed(NSError(domain: "Swallpaper", code: -1, userInfo: [NSLocalizedDescriptionKey: "File not found after write"]))
