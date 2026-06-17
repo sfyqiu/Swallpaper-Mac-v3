@@ -148,7 +148,7 @@ final class SceneWallpaperPropertiesViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
             let json = SceneWallpaperPropertiesService.propertiesOverrideJSON(for: wallpaperPath)
             do {
-                try await WallpaperEngineXBridge.shared.refreshWallpaperProperties(userProperties: json)
+                try await WallpaperEngineXBridge.shared.refreshWallpaperProperties(userProperties: json ?? "{}")
             } catch {
                 print("[SceneWallpaperPropertiesPanel] 重启渲染器失败: \(error.localizedDescription)")
             }

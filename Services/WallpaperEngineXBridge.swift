@@ -2162,21 +2162,16 @@ private final class WebRendererBridge: NSObject, WKNavigationDelegate {
 
     // MARK: - Scene / Web 壁纸属性刷新（由 SceneWallpaperPropertiesPanel / WebWallpaperDesignPanel 调用）
 
-    /// 刷新场景壁纸的属性并重启渲染器
     func refreshWallpaperProperties(userProperties json: String) async throws {
-        // 暂存属性刷新请求，CLI 进程下次启动时自动加载
         UserDefaults.standard.set(json, forKey: "scene_wallpaper_pending_properties")
         print("[WallpaperEngineXBridge] refreshWallpaperProperties: \(json.prefix(200))...")
     }
 
-    /// 应用 Web 壁纸属性
     func applyWebWallpaperProperties(_ json: String) async throws {
         UserDefaults.standard.set(json, forKey: "web_wallpaper_pending_properties")
         print("[WallpaperEngineXBridge] applyWebWallpaperProperties: \(json.prefix(200))...")
     }
 }
-
-// MARK: - 错误类型
 
 enum WallpaperEngineError: LocalizedError {
     case notInstalled
