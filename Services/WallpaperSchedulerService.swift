@@ -598,8 +598,8 @@ class WallpaperSchedulerService: ObservableObject {
 
         // 预加载下一批壁纸的视频，减少切换黑屏时间
         for change in pending {
-            if let videoURL = change.item.bakedVideoPath.map({ URL(fileURLWithPath: $0) })
-                ?? change.item.previewVideoURL {
+            if let videoPath = change.item.bakedVideoPath {
+                let videoURL = URL(fileURLWithPath: videoPath)
                 VideoWallpaperManager.shared.preloadVideo(url: videoURL)
             }
         }

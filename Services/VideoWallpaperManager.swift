@@ -470,6 +470,21 @@ final class VideoWallpaperManager: ObservableObject {
         return player.rate == 0
     }
 
+    // MARK: - 视频预加载
+
+    /// 预加载指定 URL 的视频，后台初始化 AVPlayerItem 以加速切换。
+    func preloadVideo(url: URL) {
+        guard url != currentVideoURL, preloadedItem?.url != url else { return }
+        preloadedItem = nil
+        let asset = AVAsset(url: url)
+        let item = AVPlayerItem(asset: asset)
+        let keys = ["playable", "tracks"]
+        Task(priority: .background) {
+            try? await asset.load(.isPlayable)
+        }
+        preloadedItem = (url, item)
+    }
+
     // MARK: - 锁屏处理
 
     /// 当前是否处于锁屏状态（供 AutoPauseManager 等外部模块查询）
@@ -2312,25 +2327,6 @@ final class VideoLoopPreprocessingService: ObservableObject {
         try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
     }
 
-    // MARK: - 视频预加载
-
-    /// 预加载指定 URL 的视频，使其在切换到该壁纸时能够秒开。
-    /// 首次调用时在后台创建 AVPlayerItem，下次切换同 URL 时直接复用。
-    func preloadVideo(url: URL) {
-        guard url != currentVideoURL, preloadedItem?.url != url else { return }
-        // 释放旧的预加载
-        preloadedItem = nil
-        let asset = AVAsset(url: url)
-        let item = AVPlayerItem(asset: asset)
-        // 主动触发首帧加载（后台线程）
-        Task(priority: .background) {
-            _ = try? await asset.load(.preferredDisplayCriteria)
-            // 保持 item 引用，applyVideoWallpaper 会检查并使用它
-        }
-        preloadedItem = (url, item)
-    }
-
-    // MARK: - Query
 
     /// 通过下载记录判断指定路径的视频是否已做 loop 预处理
     func isProcessed(_ fileURL: URL) -> Bool {

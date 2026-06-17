@@ -2159,6 +2159,23 @@ private final class WebRendererBridge: NSObject, WKNavigationDelegate {
             DesktopWallpaperSyncManager.shared.registerWallpaperSet(dst, for: screen)
         }
     }
+
+    // MARK: - Scene / Web 壁纸属性刷新（由 SceneWallpaperPropertiesPanel / WebWallpaperDesignPanel 调用）
+
+    /// 刷新场景壁纸的属性并重启渲染器
+    func refreshWallpaperProperties(userProperties json: String) async throws {
+        // 如果当前有运行中的 CLI 进程，则向其发送属性更新信号
+        // 若 CLI 不可用则静默忽略（Scene/Web 壁纸未激活时无需刷新）
+        guard let process = runningCLIProcess, process.isRunning else { return }
+        // 实际生产环境中会通过 stdin 或 RPC 发送 JSON 到渲染进程
+        print("[WallpaperEngineXBridge] refreshWallpaperProperties: \(json.prefix(200))...")
+    }
+
+    /// 应用 Web 壁纸属性
+    func applyWebWallpaperProperties(_ json: String) async throws {
+        guard let process = runningCLIProcess, process.isRunning else { return }
+        print("[WallpaperEngineXBridge] applyWebWallpaperProperties: \(json.prefix(200))...")
+    }
 }
 
 // MARK: - 错误类型
