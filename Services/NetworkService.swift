@@ -296,16 +296,59 @@ actor NetworkService {
     /// - Returns: 临时文件 URL（调用方需自行移入目标目录）
     func downloadFile(from url: URL, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
-        let (tempURL, response) = try await downloadSession.download(for: request)
+        let (bytes, response) = try await downloadSession.bytes(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
             throw NetworkError.invalidResponse
         }
 
-        // 如果有进度回调，在下载完成后报告 100%
-        progressHandler?(1.0)
+        let expectedLength = response.expectedContentLength
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(url.pathExtension)
 
+        guard FileManager.default.createFile(atPath: tempURL.path, contents: nil) else {
+            throw NetworkError.invalidResponse
+        }
+        let fileHandle = try FileHandle(forWritingTo: tempURL)
+        defer { try? fileHandle.close() }
+
+        let chunkSize = 256 * 1024 // 256KB 缓冲
+        var buffer = Data()
+        buffer.reserveCapacity(chunkSize)
+        var receivedLength: Int64 = 0
+        var lastReportedProgress: Double = 0
+        let progressThreshold = 0.01
+
+        progressHandler?(expectedLength > 0 ? 0.0 : 0.08)
+
+        for try await byte in bytes {
+            try Task.checkCancellation()
+            buffer.append(byte)
+
+            if buffer.count >= chunkSize {
+                try fileHandle.write(contentsOf: buffer)
+                receivedLength += Int64(buffer.count)
+                buffer.removeAll(keepingCapacity: true)
+
+                if expectedLength > 0 {
+                    let currentProgress = min(max(Double(receivedLength) / Double(expectedLength), 0.0), 1.0)
+                    if abs(currentProgress - lastReportedProgress) >= progressThreshold || currentProgress >= 1.0 {
+                        lastReportedProgress = currentProgress
+                        progressHandler?(currentProgress)
+                    }
+                }
+            }
+        }
+
+        // 写入剩余数据
+        if !buffer.isEmpty {
+            try fileHandle.write(contentsOf: buffer)
+        }
+
+        try fileHandle.close()
+        progressHandler?(1.0)
         return tempURL
     }
 

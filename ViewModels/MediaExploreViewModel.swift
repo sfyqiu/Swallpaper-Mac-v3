@@ -1191,8 +1191,9 @@ final class MediaExploreViewModel: ObservableObject {
             // 使用大文件下载（直接写入磁盘，不占内存，超时 600 秒）
             let tempURL = try await networkService.downloadFile(from: downloadOption.remoteURL) { progress in
                 guard let taskID else { return }
+                let adjustedProgress = saveToDownloads ? progress * 0.9 : progress
                 Task { @MainActor in
-                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(progress * 0.86, 0.86))
+                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(adjustedProgress, 0.9))
                 }
             }
             // 将临时文件移到缓存目录
