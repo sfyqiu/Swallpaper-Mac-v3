@@ -126,6 +126,55 @@ final class MediaGridCell: ExploreGridItem {
             containerView.needsLayout = true
             contentView.needsLayout = true
         }
+
+        // 右键菜单
+        setupContextMenu(for: media)
+    }
+
+    private func setupContextMenu(for media: MediaItem) {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        // 用系统预览打开图片
+        if let posterURL = media.posterURL ?? URL(string: media.thumbnailURL.absoluteString) {
+            let previewItem = NSMenuItem(title: "用预览打开", action: #selector(openInPreview(_:)), keyEquivalent: "")
+            previewItem.target = self
+            previewItem.representedObject = posterURL
+            menu.addItem(previewItem)
+        }
+
+        // 用播放器打开视频
+        if let videoURL = media.previewVideoURL ?? media.downloadOptions.first?.remoteURL {
+            let playItem = NSMenuItem(title: "用播放器打开", action: #selector(openInPlayer(_:)), keyEquivalent: "")
+            playItem.target = self
+            playItem.representedObject = videoURL
+            menu.addItem(playItem)
+        }
+
+        menu.addItem(.separator())
+
+        // 在 Finder 中显示
+        let finderItem = NSMenuItem(title: "在 Finder 中显示", action: #selector(showInFinder(_:)), keyEquivalent: "")
+        finderItem.target = self
+        finderItem.representedObject = media.pageURL
+        menu.addItem(finderItem)
+
+        self.menu = menu
+    }
+
+    @objc private func openInPreview(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openInPlayer(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func showInFinder(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
     }
 
     override func layoutContentFrames() {

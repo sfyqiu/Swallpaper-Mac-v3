@@ -157,6 +157,56 @@ final class WallpaperGridCell: ExploreGridItem {
             containerView.needsLayout = true
             contentView.needsLayout = true
         }
+
+        // 右键菜单
+        setupWallpaperContextMenu(for: wallpaper)
+    }
+
+    private func setupWallpaperContextMenu(for wallpaper: Wallpaper) {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        // 用系统预览打开原图
+        if let imageURL = wallpaper.fullImageURL {
+            let previewItem = NSMenuItem(title: "用预览打开", action: #selector(openWallpaperInPreview(_:)), keyEquivalent: "")
+            previewItem.target = self
+            previewItem.representedObject = imageURL
+            menu.addItem(previewItem)
+        }
+
+        menu.addItem(.separator())
+
+        // 在浏览器中打开页面
+        if let pageURL = URL(string: "https://wallhaven.cc/w/\(wallpaper.id)") {
+            let browserItem = NSMenuItem(title: "在浏览器中打开", action: #selector(openWallpaperInBrowser(_:)), keyEquivalent: "")
+            browserItem.target = self
+            browserItem.representedObject = pageURL
+            menu.addItem(browserItem)
+        }
+
+        // 在 Finder 中显示
+        let finderItem = NSMenuItem(title: "在 Finder 中显示", action: #selector(showWallpaperInFinder(_:)), keyEquivalent: "")
+        finderItem.target = self
+        let finderPath = "/Users/\(NSUserName())/Pictures"
+        finderItem.representedObject = finderPath
+        menu.addItem(finderItem)
+
+        self.menu = menu
+    }
+
+    @objc private func openWallpaperInPreview(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openWallpaperInBrowser(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func showWallpaperInFinder(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
     }
 
     private func cacheFittingSizes() {
