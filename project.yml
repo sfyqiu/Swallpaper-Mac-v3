@@ -65,7 +65,7 @@ targets:
       base:
         PRODUCT_NAME: Swallpaper
         PRODUCT_BUNDLE_IDENTIFIER: com.swallpaper.app
-        MARKETING_VERSION: 1.3.16
+        MARKETING_VERSION: 1.3.30
         CURRENT_PROJECT_VERSION: 1
         SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
