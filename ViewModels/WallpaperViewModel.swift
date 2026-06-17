@@ -63,6 +63,18 @@ class WallpaperViewModel: ObservableObject {
     @Published var selectedRatios: [String] = []
     @Published var selectedColors: [String] = []
     @Published var atleastResolution: String? = "1920x1080"  // 最小分辨率，如 "3840x2160"
+    /// 高质量模式：开启后只显示 4K+、高评分内容
+    @Published var highQualityMode = false
+
+    /// 高质量模式下强制使用 4K 最低分辨率
+    private var effectiveAtleastResolution: String? {
+        highQualityMode ? "3840x2160" : atleastResolution
+    }
+
+    /// 高质量模式下自动过滤非 SFW
+    private var effectivePuritySFW: Bool { highQualityMode ? true : puritySFW }
+    private var effectivePuritySketchy: Bool { highQualityMode ? false : puritySketchy }
+    private var effectivePurityNSFW: Bool { highQualityMode ? false : purityNSFW }
     @Published var selected4KCategorySlug: String? = nil  // 4K 源的分类 slug（如 "anime", "nature"）
     @Published var selected4KSorting: FourKSortingOption = .latest  // 4K 源的排序方式
 
@@ -570,7 +582,7 @@ class WallpaperViewModel: ObservableObject {
             sorting: SortingOption.relevance.rawValue,
             order: "desc",
             topRange: nil,
-            atleast: atleastResolution,
+            atleast: effectiveAtleastResolution,
             resolutions: normalizedResolutions(),
             ratios: normalizedRatios(),
             colors: normalizedColors()
@@ -602,7 +614,7 @@ class WallpaperViewModel: ObservableObject {
             sorting: SortingOption.dateAdded.rawValue,
             order: "desc",
             topRange: nil,
-            atleast: atleastResolution,
+            atleast: effectiveAtleastResolution,
             resolutions: normalizedResolutions(),
             ratios: normalizedRatios(),
             colors: normalizedColors()
@@ -783,7 +795,7 @@ class WallpaperViewModel: ObservableObject {
             sorting: sortingOption.rawValue,
             order: orderDescending ? "desc" : "asc",
             topRange: sortingOption == .toplist ? topRange.rawValue : nil,
-            atleast: atleastResolution,
+            atleast: effectiveAtleastResolution,
             resolutions: normalizedResolutions(),
             ratios: normalizedRatios(),
             colors: normalizedColors(),
@@ -1014,9 +1026,9 @@ class WallpaperViewModel: ObservableObject {
     private func normalizedPurityMask() -> String {
         // 位掩码格式: 1=包含, 0=排除
         // 第一位=SFW, 第二位=Sketchy, 第三位=NSFW
-        let sfw = puritySFW ? 1 : 0
-        let sketchy = puritySketchy ? 1 : 0
-        let nsfw = (apiKeyConfigured && purityNSFW) ? 1 : 0
+        let sfw = (highQualityMode || puritySFW) ? 1 : 0
+        let sketchy = highQualityMode ? 0 : (puritySketchy ? 1 : 0)
+        let nsfw = highQualityMode ? 0 : ((apiKeyConfigured && purityNSFW) ? 1 : 0)
 
         // 确保至少选择一个
         if sfw == 0 && sketchy == 0 && nsfw == 0 {

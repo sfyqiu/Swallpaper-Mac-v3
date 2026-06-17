@@ -530,10 +530,12 @@ struct WallpaperExploreContentView: View {
     private var filterSection: some View {
         let hasColor = viewModel.currentSourceSupportsColorFilter
 
-        if hasColor {
-            VStack(alignment: .leading, spacing: 16) {
-                if hasColor { colorFilter }
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            highQualityFilter
+
+            purityFilter
+
+            if hasColor { colorFilter }
         }
     }
 
@@ -554,6 +556,35 @@ struct WallpaperExploreContentView: View {
                         togglePurity(filter)
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var highQualityFilter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "sparkle.magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundStyle(viewModel.highQualityMode ? Color.orange : Color.white.opacity(0.3))
+                Text("🔥 " + t("highQualityMode"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(viewModel.highQualityMode ? Color.orange : arcSettings.secondaryText.opacity(0.46))
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { viewModel.highQualityMode },
+                    set: { newValue in
+                        viewModel.highQualityMode = newValue
+                        Task { await viewModel.refresh() }
+                    }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+            if viewModel.highQualityMode {
+                Text(t("highQualityModeDesc"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.orange.opacity(0.7))
             }
         }
     }
