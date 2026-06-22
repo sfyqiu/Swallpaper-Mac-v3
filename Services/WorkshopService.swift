@@ -1569,6 +1569,9 @@ class WorkshopService: ObservableObject {
 
             task.terminationHandler = { _ in
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
+                    // 下载完成，进度设为 100%
+                    progressHandler?(1.0)
+
                     // 超时导致的终止，直接返回明确的超时错误
                     if timeoutFlag.value {
                         resumeBox.resume(throwing: WorkshopError.timeout)
