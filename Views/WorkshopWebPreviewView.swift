@@ -5,6 +5,7 @@ import WebKit
 struct WorkshopWebPreviewView: View {
     let url: URL
     @Environment(\.dismiss) private var dismiss
+    @State private var loadFailed = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,7 +35,28 @@ struct WorkshopWebPreviewView: View {
 
             Divider()
 
-            WebView(url: url)
+            if loadFailed {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.orange)
+                    Text("Steam 页面加载失败")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("可能是该内容需要登录 Steam 才能查看")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Button("在浏览器中打开") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                WebView(url: url, loadFailed: $loadFailed)
+            }
         }
         .frame(width: 900, height: 700)
     }
@@ -42,6 +64,9 @@ struct WorkshopWebPreviewView: View {
 
 private struct WebView: NSViewRepresentable {
     let url: URL
+    @Binding var loadFailed: Bool
+
+    func makeNSView(context: Context) -> WKWebView {
     @State private var isLoading = true
 
     func makeNSView(context: Context) -> WKWebView {
@@ -55,9 +80,7 @@ private struct WebView: NSViewRepresentable {
         web.navigationDelegate = context.coordinator
         web.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 
-        var req = URLRequest(url: url)
-        req.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
-        req.setValue("https://steamcommunity.com", forHTTPHeaderField: "Referer")
+        let req = URLRequest(url: url)
         web.load(req)
         return web
     }
@@ -65,26 +88,36 @@ private struct WebView: NSViewRepresentable {
     func updateNSView(_ nsView: WKWebView, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(loadFailed: $loadFailed)
     }
 
     class Coordinator: NSObject, WKNavigationDelegate {
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            // Steam 页面加载完成后，尝试隐藏不需要的元素
-            webView.evaluateJavaScript("""
-                var style = document.createElement('style');
-                style.textContent = `
-                    .responsive_page_menu_ctn, .responsive_header, .game_suggestions_list,
-                    #global_header, .footer_content_ctn { display: none !important; }
-                    .responsive_page_content { margin-top: 0 !important; }
-                `;
-                document.head.appendChild(style);
-            """)
+        @Binding var loadFailed: Bool
+
+        init(loadFailed: Binding<Bool>) {
+            _loadFailed = loadFailed
         }
 
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {}
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // 检查是否 Steam 的错误页面
+            webView.evaluateJavaScript("document.title") { result, _ in
+                if let title = result as? String,
+                   title.contains("抱歉") || title.contains("Error") || title == "" {
+                    DispatchQueue.main.async {
+                        self.loadFailed = true
+                    }
+                }
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            if (error as NSError).code != NSURLErrorCancelled {
+                DispatchQueue.main.async { self.loadFailed = true }
+            }
+        }
+
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            print("[WorkshopWebPreview] Failed: \(error.localizedDescription)")
+            DispatchQueue.main.async { self.loadFailed = true }
         }
     }
 }
