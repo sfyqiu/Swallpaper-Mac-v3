@@ -1,7 +1,10 @@
 import Foundation
 import Combine
 
-// MARK: - Actor 隔离的下载任务存储
+// MARK: - 通知名称
+extension Notification.Name {
+    static let downloadTaskRetryRequested = Notification.Name("downloadTaskRetryRequested")
+}
 private actor DownloadTaskStorage {
     var activeDownloads: [String: Task<Void, Error>] = [:]
     var cancellationFlags: [String: Bool] = [:]
@@ -253,6 +256,17 @@ class DownloadTaskService: ObservableObject {
         tasks.removeAll { $0.id == id }
         lastProgressUpdateTimes.removeValue(forKey: id)
         suppressedToastTaskIDs.remove(id)
+        persistTasks()
+    }
+
+    /// 重置失败的任务为待下载状态
+    func resetTask(id: String) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        guard tasks[index].status == .failed else { return }
+        objectWillChange.send()
+        tasks[index].status = .pending
+        tasks[index].progress = 0
+        tasks[index].lastUpdatedAt = .now
         persistTasks()
     }
 

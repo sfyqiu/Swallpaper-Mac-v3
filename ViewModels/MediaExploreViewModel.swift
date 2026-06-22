@@ -816,6 +816,23 @@ final class MediaExploreViewModel: ObservableObject {
         UserDefaults.standard.object(forKey: DownloadPathManager.persistDownloadsToAppLibraryDefaultsKey) as? Bool ?? true
     }
 
+    // MARK: - 重试下载
+
+    /// 重试失败的任务
+    func retryDownload(_ task: DownloadTask) async {
+        if let item = task.workshopItem ?? task.mediaItem {
+            downloadTaskService.resetTask(id: task.id)
+            do {
+                try await download(item, preferredOption: item.downloadOptions.first)
+                downloadTaskService.updateProgress(id: task.id, progress: 1.0)
+                downloadTaskService.markCompleted(id: task.id)
+            } catch {
+                downloadTaskService.updateProgress(id: task.id, progress: 0)
+                print("[MediaExploreViewModel] Retry failed: \(error)")
+            }
+        }
+    }
+
     func download(_ item: MediaItem, preferredOption: MediaDownloadOption? = nil) async throws {
         let task = downloadTaskService.addTask(mediaItem: item)
 

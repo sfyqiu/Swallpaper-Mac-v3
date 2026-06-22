@@ -661,6 +661,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Scene 壁纸编辑器", action: #selector(openSceneDesigner(_:)), keyEquivalent: "")
         fileMenu.addItem(withTitle: "Web 壁纸编辑器", action: #selector(openWebDesigner(_:)), keyEquivalent: "")
+        fileMenu.addItem(NSMenuItem.separator())
+        fileMenu.addItem(withTitle: "我的收藏", action: #selector(openFavorites(_:)), keyEquivalent: "f")
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -737,6 +739,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard response == .OK, let url = panel.url else { return }
             WebWallpaperDesignPanelController.shared.present(for: url.path)
         }
+    }
+
+    @objc private func openFavorites(_ sender: Any?) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 520),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered, defer: false
+        )
+        window.title = "我的收藏"
+        window.contentView = NSHostingView(rootView: FavoritesListView())
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func updateActivationPolicy(showDockIcon: Bool) {

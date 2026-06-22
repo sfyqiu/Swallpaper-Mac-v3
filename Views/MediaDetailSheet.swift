@@ -559,6 +559,26 @@ struct MediaDetailSheet: View {
                 }
                 .buttonStyle(.plain)
 
+                // 收藏按钮
+                Button {
+                    let fav = WorkshopFavoritesManager.shared
+                    let isFav = fav.isFavorite(id: resolvedItem.id)
+                    if isFav { fav.removeFavorite(id: resolvedItem.id) }
+                    else {
+                        fav.addFavorite(id: resolvedItem.id, title: resolvedItem.title,
+                            previewURL: resolvedItem.coverImageURL.absoluteString,
+                            pageURL: resolvedItem.pageURL.absoluteString, tags: [])
+                    }
+                } label: {
+                    DetailSheetCircleIconLabel(
+                        systemName: WorkshopFavoritesManager.shared.isFavorite(id: resolvedItem.id) ? "heart.fill" : "heart",
+                        foreground: WorkshopFavoritesManager.shared.isFavorite(id: resolvedItem.id) ? Color(hex: "FF5A7D") : .white.opacity(0.85),
+                        fontSize: 16, frameSide: 40
+                    )
+                    .detailGlassCircleChrome(tint: WorkshopFavoritesManager.shared.isFavorite(id: resolvedItem.id) ? Color(hex: "FF5A7D").opacity(0.25) : Color.clear)
+                }
+                .buttonStyle(.plain)
+
                 if isAlreadyDownloaded {
                     Button {
                         showDeleteConfirm = true

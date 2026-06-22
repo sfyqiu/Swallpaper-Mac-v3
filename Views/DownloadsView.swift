@@ -170,7 +170,12 @@ private struct DownloadTaskRow: View {
 
                 if task.status == .failed {
                     Button(t("retry")) {
-                        // 重试逻辑 — 调用方需重新触发下载
+                        downloadService.resetTask(id: task.id)
+                        NotificationCenter.default.post(
+                            name: .downloadTaskRetryRequested,
+                            object: nil,
+                            userInfo: ["taskID": task.id, "task": task]
+                        )
                     }
                     .font(.system(size: 11))
                     .foregroundStyle(Color(hex: "FF453A"))

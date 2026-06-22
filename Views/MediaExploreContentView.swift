@@ -169,6 +169,11 @@ struct MediaExploreContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .workshopSourceChanged)) { _ in
             handleSourceChange()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .downloadTaskRetryRequested)) { notification in
+            if let task = notification.userInfo?["task"] as? DownloadTask {
+                Task { await viewModel.retryDownload(task) }
+            }
+        }
     }
 
     @ViewBuilder

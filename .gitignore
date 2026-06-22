@@ -83,9 +83,9 @@ Resources/steamcmd/public/
 # Large binary resources (compile-time artifacts, not source)
 Resources/zip_data.o
 Resources/wallpaper-wgpu
-Resources/wallpaperengine-cli
+# Resources# /wallpaperengine-cli
 /wallpaper-wgpu
-/wallpaperengine-cli
+# /wallpaperengine-cli
 /zip_data.o
 Resources/lib/*.dylib
 Resources/lib/*.so
@@ -99,7 +99,7 @@ screenshots/
 
 # Wallpaper Engine Renderer - now open-source
 # wallpaperengine-cli.swift
-# Resources/wallpaperengine-cli
+# # Resources# /wallpaperengine-cli
 # Resources/liblinux-wallpaperengine-renderer.dylib
 # Resources/CRenderer/
 # Resources/RendererAPI.h
