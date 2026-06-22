@@ -30,5 +30,7 @@
     <string>Copyright © 2026 Swallpaper. All rights reserved.</string>
     <key>LSUIElement</key>
     <false/>
+    <key>NSScreenCaptureDescription</key>
+    <string>Swallpaper 需要屏幕录制权限来渲染场景壁纸（Scene Wallpaper Baking），仅在您使用「烘焙场景壁纸」功能时才会启用。</string>
 </dict>
 </plist>
