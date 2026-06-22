@@ -1452,11 +1452,12 @@ class WorkshopService: ObservableObject {
                     try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
                     guard totalSize > 0 else { continue }
                     let elapsed = Date().timeIntervalSince(startTime)
-                    // 基于时间的估算进度 = min(已下载估算 / 总大小, 0.99)
+                    // 基于时间的估算进度 = min(已下载估算 / 总大小, 0.95)
+                    // 留 5% 给下载完成后 SteamCMD 解包，避免卡 99%
                     // 已下载估算 = max(实际字节数, elapsed * minSpeed)
                     let currentBytes = Self.dirSize(downloadDir.appendingPathComponent("steamapps"))
                     let estimatedBytes = max(Double(currentBytes), elapsed * minSpeed)
-                    let progress = min(estimatedBytes / Double(totalSize), 0.99)
+                    let progress = min(estimatedBytes / Double(totalSize), 0.95)
                     if progress > lastReportedProgress + 0.001 {
                         lastReportedProgress = progress
                         progressHandler?(progress)
@@ -1574,6 +1575,9 @@ class WorkshopService: ObservableObject {
                         resumeBox.resume(throwing: WorkshopError.timeout)
                         return
                     }
+
+                    // SteamCMD 已完成，进度设为 100%
+                    progressHandler?(1.0)
 
                     let combinedOutput = outputBox.combined()
                     AppLogger.info(.media, "downloadWorkshopItem steamcmd output", metadata: ["output": combinedOutput])

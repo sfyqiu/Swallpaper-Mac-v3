@@ -1191,15 +1191,15 @@ final class MediaExploreViewModel: ObservableObject {
             // 使用大文件下载（直接写入磁盘，不占内存，超时 600 秒）
             let tempURL = try await networkService.downloadFile(from: downloadOption.remoteURL) { progress in
                 guard let taskID else { return }
-                let adjustedProgress = saveToDownloads ? progress * 0.9 : progress
+                let adjustedProgress = saveToDownloads ? progress * 0.95 : progress
                 Task { @MainActor in
-                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(adjustedProgress, 0.9))
+                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(adjustedProgress, 0.95))
                 }
             }
             // 将临时文件移到缓存目录
             cachedURL = try await cacheService.moveFileToCache(tempURL, named: fileURL.lastPathComponent, in: "Media")
             if let taskID {
-                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.9 : 1.0)
+                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.95 : 1.0)
             }
         }
 
