@@ -33,7 +33,6 @@ struct MediaDetailSheet: View {
     @State private var showSteamGuardAlert = false
     @State private var showSessionExpiredAlert = false
     @State private var pendingSteamGuardCode = ""
-    @State private var showSteamPreview = false
     @State private var isBakingScene = false
     @State private var showSceneBakeRendererDialog = false
     @State private var sceneBakeShouldClearCachedArtifact = false
@@ -559,23 +558,6 @@ struct MediaDetailSheet: View {
                     .detailGlassCircleChrome()
                 }
                 .buttonStyle(.plain)
-
-                // Steam 网页预览
-                Button {
-                    showSteamPreview = true
-                } label: {
-                    DetailSheetCircleIconLabel(
-                        systemName: "safari",
-                        foreground: .white.opacity(0.95),
-                        fontSize: 16,
-                        frameSide: 40
-                    )
-                    .detailGlassCircleChrome()
-                }
-                .buttonStyle(.plain)
-                .sheet(isPresented: $showSteamPreview) {
-                    WorkshopWebPreviewView(url: resolvedItem.pageURL)
-                }
 
                 if isAlreadyDownloaded {
                     Button {

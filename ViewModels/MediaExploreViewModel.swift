@@ -1162,7 +1162,7 @@ final class MediaExploreViewModel: ObservableObject {
         if fileLocation.foundIn != .notFound {
             print("[MediaExploreViewModel] File found at: \(fileLocation.url.path) (location: \(fileLocation.foundIn))")
             if let taskID {
-                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.72 : 1.0)
+                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.95 : 1.0)
             }
 
             // 如果在旧位置找到，更新下载记录的路径
@@ -1185,18 +1185,18 @@ final class MediaExploreViewModel: ObservableObject {
         if let existingCachedURL = await cacheService.cachedFileURL(named: fileURL.lastPathComponent, in: "Media") {
             cachedURL = existingCachedURL
             if let taskID {
-                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.72 : 1.0)
+                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.95 : 1.0)
             }
         } else {
             let data = try await networkService.fetchData(from: downloadOption.remoteURL) { progress in
                 guard let taskID else { return }
                 Task { @MainActor in
-                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(progress * 0.86, 0.86))
+                    DownloadTaskService.shared.updateProgress(id: taskID, progress: min(progress * 0.95, 0.95))
                 }
             }
             cachedURL = try await cacheService.cacheFile(data, named: fileURL.lastPathComponent, in: "Media")
             if let taskID {
-                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.9 : 1.0)
+                updateDownloadProgress(taskID: taskID, progress: saveToDownloads ? 0.95 : 1.0)
             }
         }
 
