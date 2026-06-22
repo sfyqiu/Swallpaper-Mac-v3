@@ -1211,11 +1211,9 @@ final class MediaExploreViewModel: ObservableObject {
                         print("[MediaExploreViewModel] Created directory: \(directory.path)")
                     }
 
-                    // 文件级复制，避免大视频反复加载到内存
-                    if FileManager.default.fileExists(atPath: fileURL.path) {
-                        try FileManager.default.removeItem(at: fileURL)
-                    }
-                    try FileManager.default.copyItem(at: cachedURL, to: fileURL)
+                    // 后台读取缓存文件 + 后台写入目标文件，避免 MainActor 阻塞
+                    let cachedData = try await cachedURL.readDataAsync()
+                    try await cachedData.writeAsync(to: fileURL, options: .atomic)
 
                     // 验证文件是否成功写入
                     if FileManager.default.fileExists(atPath: fileURL.path) {
