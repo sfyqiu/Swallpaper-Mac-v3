@@ -32,6 +32,19 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Download SteamCMD (for Workshop downloads)
+        run: |
+          if [ ! -f "Resources/steamcmd/steamcmd" ]; then
+            echo "Downloading SteamCMD..."
+            curl -L -o /tmp/steamcmd.tar.gz \
+              "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz"
+            tar xzf /tmp/steamcmd.tar.gz -C Resources/steamcmd/
+            chmod +x Resources/steamcmd/steamcmd
+            echo "SteamCMD downloaded: $(ls -lh Resources/steamcmd/steamcmd)"
+          else
+            echo "SteamCMD already exists"
+          fi
+
       - name: Install create-dmg (optional)
         run: brew install create-dmg || true
         continue-on-error: true
