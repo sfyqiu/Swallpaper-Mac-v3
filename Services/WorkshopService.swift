@@ -1456,7 +1456,7 @@ class WorkshopService: ObservableObject {
                     // 已下载估算 = max(实际字节数, elapsed * minSpeed)
                     let currentBytes = Self.dirSize(downloadDir.appendingPathComponent("steamapps"))
                     let estimatedBytes = max(Double(currentBytes), elapsed * minSpeed)
-                    let progress = min(estimatedBytes / Double(totalSize), 0.99)
+                    let progress = min(estimatedBytes / Double(totalSize), 0.95)
                     if progress > lastReportedProgress + 0.001 {
                         lastReportedProgress = progress
                         progressHandler?(progress)
