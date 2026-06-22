@@ -574,9 +574,7 @@ struct MediaDetailSheet: View {
                 }
                 .buttonStyle(.plain)
                 .sheet(isPresented: $showSteamPreview) {
-                    if let url = resolvedItem.pageURL {
-                        WorkshopWebPreviewView(url: url)
-                    }
+                    WorkshopWebPreviewView(url: resolvedItem.pageURL)
                 }
 
                 if isAlreadyDownloaded {
